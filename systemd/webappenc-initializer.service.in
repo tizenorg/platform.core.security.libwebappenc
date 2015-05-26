@@ -1,0 +1,12 @@
+[Unit]
+Description=Import APP DEKs for Preloaded Web App Decryption
+DefaultDependencies=no
+Requires=central-key-manager.service
+After=central-key-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/wae_initializer
+
+[Install]
+WantedBy=multi-user.target
