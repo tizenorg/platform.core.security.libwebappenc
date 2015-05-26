@@ -1,0 +1,11 @@
+prefix=@PREFIX@
+libdir=@PREFIX@/lib
+includedir=@PREFIX@/include
+
+Name: @PC_NAME@
+Description: Web application encryption and decryption service based on key-manager
+Version: @VERSION@
+Requires: @PC_REQUIRED@
+Libs: @PC_LDFLAGS@
+Cflags: @PC_CFLAGS@
+
