@@ -31,9 +31,9 @@
 
 #include <tzplatform_config.h>
 
-static size_t tc_seq = 0;
-static size_t tc_succ = 0;
-static size_t tc_fail = 0;
+static int tc_seq = 0;
+static int tc_succ = 0;
+static int tc_fail = 0;
 
 #define FPRINTF(format, args...) fprintf(stdout, format, ##args)
 
@@ -203,7 +203,7 @@ int wae_tc_encrypt_decrypt_aes_cbc()
     }
 
     if(plaintextLen != decLen) {
-        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", plaintextLen, decLen);
+        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", (int) plaintextLen, (int) decLen);
         ret = WAE_ERROR_CRYPTO;
         goto error;
     }
@@ -705,7 +705,7 @@ int wae_tc_encrypt_decrypt_web_application()
     }
 
     if(plaintextLen != decLen) {
-        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", plaintextLen, decLen);
+        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", (int) plaintextLen, (int) decLen);
         ret = WAE_ERROR_CRYPTO;
         goto error;
     }
@@ -754,7 +754,7 @@ int wae_tc_encrypt_decrypt_web_application()
     _remove_app_dek_from_cache(pkgId2);
 
     if(plaintextLen != decLen) {
-        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", plaintextLen, decLen);
+        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", (int) plaintextLen, (int) decLen);
         ret = WAE_ERROR_CRYPTO;
         goto error;
     }
