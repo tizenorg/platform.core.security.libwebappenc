@@ -29,7 +29,7 @@
 #include "wae_log.h"
 
 
-int _wae_encrypt_downloaded_web_application(const char* pPkgId,
+int _wae_encrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
                                 unsigned char** ppEncryptedData, size_t* pEncDataLen)
 {
@@ -55,9 +55,9 @@ int _wae_encrypt_downloaded_web_application(const char* pPkgId,
 
     // get APP_DEK.
     //   if not exists, create APP_DEK
-    ret = get_app_dek(pPkgId, &pDek, &dekLen);
+    ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
     if(ret == WAE_ERROR_NO_KEY) {
-        ret = create_app_dek(pPkgId, &pDek, &dekLen);
+        ret = create_app_dek(pPkgId, appType, &pDek, &dekLen);
     }
     if(ret != WAE_ERROR_NONE) {
         goto error;
@@ -76,7 +76,7 @@ error:
     return ret;
 }
 
-int _wae_decrypt_downloaded_web_application(const char* pPkgId,
+int _wae_decrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
                                 unsigned char** ppDecryptedData, size_t* pDecDataLen)
 {
@@ -100,7 +100,7 @@ int _wae_decrypt_downloaded_web_application(const char* pPkgId,
         goto error;
     }
 
-    ret = get_app_dek(pPkgId, &pDek, &dekLen);
+    ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
     if(ret != WAE_ERROR_NONE) {
         goto error;
     }
@@ -163,51 +163,56 @@ error:
     return ret;
 }
 
-int _wae_decrypt_preloaded_web_application(const char* pPkgId,
+int _wae_decrypt_preloaded_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
                                 unsigned char** ppDecryptedData, size_t* pDecDataLen)
 {
     // same with the decryption of downloaded web application
-    return _wae_decrypt_downloaded_web_application(pPkgId, pData, dataLen, ppDecryptedData, pDecDataLen);
+    return _wae_decrypt_downloaded_web_application(pPkgId, appType,
+                                                   pData, dataLen, ppDecryptedData, pDecDataLen);
 }
 
-int wae_encrypt_web_application(const char* pPkgId,int isPreloaded,
+int wae_encrypt_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
                                 unsigned char** ppEncryptedData, size_t* pEncDataLen)
 {
     int ret = WAE_ERROR_NONE;
 
-    if(isPreloaded)
-        ret = _wae_encrypt_preloaded_web_application(pPkgId, pData, dataLen, ppEncryptedData, pEncDataLen);
+    if(appType == WAE_PRELOADED_APP)
+        ret = _wae_encrypt_preloaded_web_application(pPkgId,
+                                                     pData, dataLen, ppEncryptedData, pEncDataLen);
     else
-        ret = _wae_encrypt_downloaded_web_application(pPkgId, pData, dataLen, ppEncryptedData, pEncDataLen);
+        ret = _wae_encrypt_downloaded_web_application(pPkgId, appType,
+                                                     pData, dataLen, ppEncryptedData, pEncDataLen);
 
-    WAE_SLOGI("Encrypt Web App. pkgId=%s, isPreloaded=%d, dataLen=%d, ret=%d",
-               pPkgId, isPreloaded, dataLen, ret);
+    WAE_SLOGI("Encrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
+               pPkgId, appType, dataLen, ret);
     return ret;
 }
 
-int wae_decrypt_web_application(const char* pPkgId, int isPreloaded,
+int wae_decrypt_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
                                 unsigned char** ppDecryptedData, size_t* pDecDataLen)
 {
     int ret = WAE_ERROR_NONE;
 
-    if(isPreloaded)
-        ret = _wae_decrypt_preloaded_web_application(pPkgId, pData, dataLen, ppDecryptedData, pDecDataLen);
+    if(appType == WAE_PRELOADED_APP)
+        ret = _wae_decrypt_preloaded_web_application(pPkgId, appType,
+                                                     pData, dataLen, ppDecryptedData, pDecDataLen);
     else
-        ret =_wae_decrypt_downloaded_web_application(pPkgId, pData, dataLen, ppDecryptedData, pDecDataLen);
+        ret = _wae_decrypt_downloaded_web_application(pPkgId, appType,
+                                                     pData, dataLen, ppDecryptedData, pDecDataLen);
 
-    WAE_SLOGI("Decrypt Web App. pkgId=%s, isPreloaded=%d, dataLen=%d, ret=%d",
-               pPkgId, isPreloaded, dataLen, ret);
+    WAE_SLOGI("Decrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
+               pPkgId, appType, dataLen, ret);
     return ret;
 }
 
 
-int wae_remove_app_dek(const char* pPkgId)
+int wae_remove_app_dek(const char* pPkgId, wae_app_type_e appType)
 {
     int ret = WAE_ERROR_NONE;
-    ret = remove_app_dek(pPkgId);
-    WAE_SLOGI("Remove APP DEK. pkgId=%s, ret=%d", pPkgId, ret);
+    ret = remove_app_dek(pPkgId, appType);
+    WAE_SLOGI("Remove APP DEK. pkgId=%s, appType=%d, ret=%d", pPkgId, appType, ret);
     return ret;
 }

@@ -334,16 +334,21 @@ int wae_tc_get_alias()
     int ret = WAE_ERROR_NONE;
 
     const char* pkgId = "TEST_PKG_ID";
-    char sys_alias[256] = {0, };
+    char alias[256] = {0, };
 
-    _get_alias(pkgId, sys_alias, sizeof(sys_alias));
+    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, alias, sizeof(alias));
+    FPRINTF("...pkgid=%s, alias for normal app=%s\n", pkgId, alias);
 
-    FPRINTF("...pkgid=%s, system alias=%s\n", pkgId, sys_alias);
+    _get_alias(pkgId, WAE_DOWNLOADED_GLOBAL_APP, alias, sizeof(alias));
+    FPRINTF("...pkgid=%s, alias for global app=%s\n", pkgId, alias);
+
+    _get_alias(pkgId, WAE_PRELOADED_APP, alias, sizeof(alias));
+    FPRINTF("...pkgid=%s, alias for preloaded app=%s\n", pkgId, alias);
 
     return ret;
 }
 
-int wae_tc_add_get_remove_dek()
+int _wae_tc_add_get_remove_dek(wae_app_type_e appType)
 {
     int ret = WAE_ERROR_NONE;
 
@@ -356,15 +361,15 @@ int wae_tc_add_get_remove_dek()
 
     ret = _get_random(dekLen, dek);
 
-    remove_app_dek(pkgId);
+    remove_app_dek(pkgId, appType);
 
-    ret = _add_dek_to_key_manager(pkgId, dek, dekLen);
+    ret = _add_dek_to_key_manager(pkgId, appType, dek, dekLen);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: _add_dek_to_key_manager. ret=%d\n", ret);
         goto error;
     }
 
-    ret = get_app_dek(pkgId, &storedDek, &storedDekLen);
+    ret = get_app_dek(pkgId, appType, &storedDek, &storedDekLen);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: get_app_dek. ret=%d\n", ret);
         goto error;
@@ -376,13 +381,13 @@ int wae_tc_add_get_remove_dek()
         goto error;
     }
 
-    ret = remove_app_dek(pkgId);
+    ret = remove_app_dek(pkgId, appType);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: remove_app_dek. ret=%d\n", ret);
         goto error;
     }
 
-    ret = get_app_dek(pkgId, &storedDek, &storedDekLen);
+    ret = get_app_dek(pkgId, appType, &storedDek, &storedDekLen);
     if(ret == WAE_ERROR_NONE) {
         ret = WAE_ERROR_UNKNOWN;
         FPRINTF("...FAIL: APP DEK still exists in key_manager.\n");
@@ -397,6 +402,21 @@ error:
     return ret;
 }
 
+int wae_tc_add_get_remove_dek_for_normal_app()
+{
+    return _wae_tc_add_get_remove_dek(WAE_DOWNLOADED_NORMAL_APP);
+}
+
+int wae_tc_add_get_remove_dek_for_global_app()
+{
+    return _wae_tc_add_get_remove_dek(WAE_DOWNLOADED_GLOBAL_APP);
+}
+
+int wae_tc_add_get_remove_dek_for_preloaded_app()
+{
+    return _wae_tc_add_get_remove_dek(WAE_PRELOADED_APP);
+}
+
 int wae_tc_get_preloaded_app_dek_file_path()
 {
     int ret = WAE_ERROR_NONE;
@@ -404,10 +424,10 @@ int wae_tc_get_preloaded_app_dek_file_path()
     const char *pkgId = "test_pkg";
     const char *expectedPath = tzplatform_mkpath4(TZ_SYS_SHARE,
                                     "wae", "app_dek", "WAE_APP_DEK_test_pkg.adek");
-    char path[100];
+    char path[256];
 
-    ret = _get_preloaded_app_dek_file_path(pkgId, path);
     FPRINTF("...expected path : %s\n", expectedPath);
+    ret = _get_preloaded_app_dek_file_path(pkgId, path);
     FPRINTF("...returned path : %s\n", path);
 
     if(ret != WAE_ERROR_NONE || strncmp(expectedPath, path, strlen(expectedPath)) != 0) {
@@ -473,7 +493,7 @@ error:
 }
 
 
-int wae_tc_create_app_dek()
+int _wae_tc_create_app_dek(wae_app_type_e appType)
 {
     int ret = WAE_ERROR_NONE;
 
@@ -484,15 +504,15 @@ int wae_tc_create_app_dek()
     size_t storedDekLen = 0;
     unsigned char* storedDek = NULL;
 
-    remove_app_dek(pkgId);
+    remove_app_dek(pkgId, appType);
 
-    ret = create_app_dek(pkgId, &dek, &dekLen);
+    ret = create_app_dek(pkgId, appType, &dek, &dekLen);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: create_app_dek. ret=%d\n", ret);
         goto error;
     }
 
-    ret = get_app_dek(pkgId, &storedDek, &storedDekLen);
+    ret = get_app_dek(pkgId, appType, &storedDek, &storedDekLen);
     if(ret != WAE_ERROR_NONE) {
         ret = WAE_ERROR_KEY_MANAGER;
         FPRINTF("...FAIL: get_app_dek. ret=%d\n", ret);
@@ -507,7 +527,7 @@ int wae_tc_create_app_dek()
         goto error;
     }
 
-    remove_app_dek(pkgId);
+    remove_app_dek(pkgId, appType);
 
     ret = WAE_ERROR_NONE;
 error:
@@ -516,6 +536,21 @@ error:
     if(storedDek != NULL)
         free(storedDek);
     return ret;
+}
+
+int wae_tc_create_app_dek_for_normal_app()
+{
+    return _wae_tc_create_app_dek(WAE_DOWNLOADED_NORMAL_APP);
+}
+
+int wae_tc_create_app_dek_for_global_app()
+{
+    return _wae_tc_create_app_dek(WAE_DOWNLOADED_GLOBAL_APP);
+}
+
+int wae_tc_create_app_dek_for_preloaded_app()
+{
+    return _wae_tc_create_app_dek(WAE_PRELOADED_APP);
 }
 
 int wae_tc_get_create_preloaded_app_dek()
@@ -589,8 +624,8 @@ int wae_tc_load_preloaded_app_deks()
     _get_preloaded_app_dek_file_path(pkgId2, path2);
 
     // remove old test data
-    remove_app_dek(pkgId1);
-    remove_app_dek(pkgId2);
+    remove_app_dek(pkgId1, WAE_PRELOADED_APP);
+    remove_app_dek(pkgId2, WAE_PRELOADED_APP);
     unlink(path1);
     unlink(path2);
 
@@ -615,13 +650,13 @@ int wae_tc_load_preloaded_app_deks()
     }
 
     // get_app_dek
-    ret = get_app_dek(pkgId1, &readDek1, &readDekLen1);
+    ret = get_app_dek(pkgId1, WAE_PRELOADED_APP, &readDek1, &readDekLen1);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: get_app_dek. ret=%d\n", ret);
         goto error;
     }
 
-    ret = get_app_dek(pkgId2, &readDek2, &readDekLen2);
+    ret = get_app_dek(pkgId2, WAE_PRELOADED_APP, &readDek2, &readDekLen2);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: get_app_dek. ret=%d\n", ret);
         goto error;
@@ -644,8 +679,8 @@ int wae_tc_load_preloaded_app_deks()
     }
 
     // remove_app_dek
-    remove_app_dek(pkgId1);
-    remove_app_dek(pkgId2);
+    remove_app_dek(pkgId1, WAE_PRELOADED_APP);
+    remove_app_dek(pkgId2, WAE_PRELOADED_APP);
 
     ret = WAE_ERROR_NONE;
 error:
@@ -665,13 +700,14 @@ error:
     return ret;
 }
 
-
-int wae_tc_encrypt_decrypt_web_application()
+int _wae_tc_encrypt_decrypt_web_app(wae_app_type_e appType)
 {
     int ret = WAE_ERROR_NONE;
 
-    const char* pkgId1 = "testpkg_for_downloaded";
-    const char* pkgId2 = "testpkg_for_preloaded";
+    const char* pkgId1 = "testpkg_for_normal";
+    const char* pkgId2 = "testpkg_for_global";
+    const char* pkgId3 = "testpkg_for_preloaded";
+    const char* pkgId = NULL;
     const char* plaintext= "adbdfdfdfdfdererfdfdfererfdrerfdrer";
     size_t plaintextLen = strlen(plaintext);
     unsigned char* encrypted = NULL;
@@ -680,15 +716,26 @@ int wae_tc_encrypt_decrypt_web_application()
     size_t decLen = 0;
     char decrypted_str[1024] = {0, };
 
-    int isPreloaded = 0; // Downloaded
+    switch(appType) {
+        case WAE_DOWNLOADED_NORMAL_APP:
+            pkgId = pkgId1;
+            break;
+        case WAE_DOWNLOADED_GLOBAL_APP:
+            pkgId = pkgId2;
+            break;
+        case WAE_PRELOADED_APP:
+            pkgId = pkgId3;
+            break;
+    }
 
     // remove old test data
-    ret = wae_remove_app_dek(pkgId1);
-    ret = wae_remove_app_dek(pkgId2);
-    ret = _clear_app_deks_loaded();
+    ret = wae_remove_app_dek(pkgId, appType);
+    if(appType == WAE_PRELOADED_APP) {
+        _clear_app_deks_loaded();
+    }
 
     // test for downloaded web application
-    ret = wae_encrypt_web_application(pkgId1, isPreloaded,
+    ret = wae_encrypt_web_application(pkgId, appType,
                                       (const unsigned char*)plaintext, plaintextLen,
                                       &encrypted, &encLen);
     if(ret != WAE_ERROR_NONE){
@@ -696,9 +743,22 @@ int wae_tc_encrypt_decrypt_web_application()
         goto error;
     }
 
-    _remove_app_dek_from_cache(pkgId1);
+    // encrypt test twice
+    ret = wae_encrypt_web_application(pkgId, appType,
+                                      (const unsigned char*)plaintext, plaintextLen,
+                                      &encrypted, &encLen);
+    if(ret != WAE_ERROR_NONE){
+        FPRINTF("...FAIL: wae_encrypt_web_application. ret=%d\n", ret);
+        goto error;
+    }
 
-    ret = wae_decrypt_web_application(pkgId1, isPreloaded, encrypted, encLen, &decrypted, &decLen);
+    _remove_app_dek_from_cache(pkgId);
+
+    if(appType == WAE_PRELOADED_APP) {
+        load_preloaded_app_deks(WAE_TRUE);
+    }
+
+    ret = wae_decrypt_web_application(pkgId, appType, encrypted, encLen, &decrypted, &decLen);
     if(ret != WAE_ERROR_NONE){
         FPRINTF("...FAIL: wae_decrypt_web_application. ret=%d\n", ret);
         goto error;
@@ -719,56 +779,7 @@ int wae_tc_encrypt_decrypt_web_application()
         goto error;
     }
 
-    ret = wae_remove_app_dek(pkgId1);
-    if(ret != WAE_ERROR_NONE){
-        FPRINTF("...FAIL: wae_remove_app_dek. ret=%d\n", ret);
-        goto error;
-    }
-
-
-    // test for preloaded web application
-    isPreloaded = 1;
-
-    ret = wae_encrypt_web_application(pkgId2, isPreloaded,
-                                      (const unsigned char*)plaintext, plaintextLen,
-                                      &encrypted, &encLen);
-    if(ret != WAE_ERROR_NONE){
-        FPRINTF("...FAIL: wae_encrypt_web_application. ret=%d\n", ret);
-        goto error;
-    }
-    // encrypt test twice
-    ret = wae_encrypt_web_application(pkgId2, isPreloaded,
-                                      (const unsigned char*)plaintext, plaintextLen,
-                                      &encrypted, &encLen);
-    if(ret != WAE_ERROR_NONE){
-        FPRINTF("...FAIL: wae_encrypt_web_application2. ret=%d\n", ret);
-        goto error;
-    }
-
-    ret = wae_decrypt_web_application(pkgId2, isPreloaded, encrypted, encLen, &decrypted, &decLen);
-    if(ret != WAE_ERROR_NONE){
-        FPRINTF("...FAIL: wae_decrypt_web_application. ret=%d\n", ret);
-        goto error;
-    }
-
-    _remove_app_dek_from_cache(pkgId2);
-
-    if(plaintextLen != decLen) {
-        FPRINTF("...FAIL: plaintextLen(%d) != decLen(%d)\n", (int) plaintextLen, (int) decLen);
-        ret = WAE_ERROR_CRYPTO;
-        goto error;
-    }
-
-    memcpy(decrypted_str, decrypted, decLen);
-    FPRINTF("...plaintext(preloaded) = %s\n", plaintext);
-    FPRINTF("...decrypted(preloaded) = %s\n", decrypted_str);
-    if(strcmp(plaintext, decrypted_str) != 0) {
-        FPRINTF("...FAIL: plaintext(%s) != decrypted(%s)\n", plaintext, decrypted_str);
-        ret = WAE_ERROR_CRYPTO;
-        goto error;
-    }
-
-    ret = wae_remove_app_dek(pkgId2);
+    ret = wae_remove_app_dek(pkgId, appType);
     if(ret != WAE_ERROR_NONE){
         FPRINTF("...FAIL: wae_remove_app_dek. ret=%d\n", ret);
         goto error;
@@ -783,33 +794,67 @@ error:
     return ret;
 }
 
-
-int run_test_cases()
+int wae_tc_encrypt_decrypt_normal_app()
 {
-    RUNTC(wae_tc_encrypt_decrypt_app_dek, "wae_tc_encrypt_decrypt_app_dek");
-    RUNTC(wae_tc_encrypt_decrypt_aes_cbc, "wae_tc_encrypt_decrypt_aes_cbc");
-    RUNTC(wae_tc_cache, "wae_tc_cache");
+    return _wae_tc_encrypt_decrypt_web_app(WAE_DOWNLOADED_NORMAL_APP);
+}
 
-    RUNTC(wae_tc_get_random, "wae_tc_get_random");
-    RUNTC(wae_tc_get_alias, "wae_tc_get_alias");
-    RUNTC(wae_tc_add_get_remove_dek, "wae_tc_add_get_remove_dek");
-    RUNTC(wae_tc_get_preloaded_app_dek_file_path, "wae_tc_get_preloaded_app_dek_file_path");
-    RUNTC(wae_tc_extract_pkg_id_from_file_name, "wae_tc_extract_pkg_id_from_file_name");
-    RUNTC(wae_tc_read_write_encrypted_app_dek, "wae_tc_read_write_encrypted_app_dek");
-    RUNTC(wae_tc_create_app_dek, "wae_tc_create_app_dek");
-    RUNTC(wae_tc_get_create_preloaded_app_dek, "wae_tc_get_create_preloaded_app_dek");
-    RUNTC(wae_tc_load_preloaded_app_deks, "wae_tc_load_preloaded_app_deks");
-    RUNTC(wae_tc_encrypt_decrypt_web_application, "wae_tc_encrypt_decrypt_web_application");
+int wae_tc_encrypt_decrypt_global_app()
+{
+    return _wae_tc_encrypt_decrypt_web_app(WAE_DOWNLOADED_GLOBAL_APP);
+}
+
+int wae_tc_encrypt_decrypt_preloaded_app()
+{
+    return _wae_tc_encrypt_decrypt_web_app(WAE_PRELOADED_APP);
+}
+
+
+int run_test_cases(char* test_mode)
+{
+    if(strcmp(test_mode, "system") == 0) {
+        RUNTC(wae_tc_encrypt_decrypt_app_dek, "wae_tc_encrypt_decrypt_app_dek");
+        RUNTC(wae_tc_encrypt_decrypt_aes_cbc, "wae_tc_encrypt_decrypt_aes_cbc");
+        RUNTC(wae_tc_cache, "wae_tc_cache");
+
+        RUNTC(wae_tc_get_random, "wae_tc_get_random");
+        RUNTC(wae_tc_get_alias, "wae_tc_get_alias");
+
+        RUNTC(wae_tc_add_get_remove_dek_for_global_app, "wae_tc_add_get_remove_dek_for_global_app");
+        RUNTC(wae_tc_add_get_remove_dek_for_preloaded_app, "wae_tc_add_get_remove_dek_for_preloaded_app");
+
+        RUNTC(wae_tc_get_preloaded_app_dek_file_path, "wae_tc_get_preloaded_app_dek_file_path");
+        RUNTC(wae_tc_extract_pkg_id_from_file_name, "wae_tc_extract_pkg_id_from_file_name");
+        RUNTC(wae_tc_read_write_encrypted_app_dek, "wae_tc_read_write_encrypted_app_dek");
+
+        RUNTC(wae_tc_create_app_dek_for_global_app, "wae_tc_create_app_dek_for_global_app");
+        RUNTC(wae_tc_create_app_dek_for_preloaded_app, "wae_tc_create_app_dek_for_preloaded_app");
+
+        RUNTC(wae_tc_get_create_preloaded_app_dek, "wae_tc_get_create_preloaded_app_dek");
+        RUNTC(wae_tc_load_preloaded_app_deks, "wae_tc_load_preloaded_app_deks");
+
+        RUNTC(wae_tc_encrypt_decrypt_global_app, "wae_tc_encrypt_decrypt_global_app");
+        RUNTC(wae_tc_encrypt_decrypt_preloaded_app, "wae_tc_encrypt_decrypt_preloaded_app");
+    }else {
+        RUNTC(wae_tc_add_get_remove_dek_for_normal_app, "wae_tc_add_get_remove_dek_for_normal_app");
+        RUNTC(wae_tc_create_app_dek_for_normal_app, "wae_tc_create_app_dek_for_normal_app");
+        RUNTC(wae_tc_encrypt_decrypt_normal_app, "wae_tc_encrypt_decrypt_normal_app");
+    }
 
     PRINT_TC_SUMMARY();
     return 0;
 }
 
-int main(void)
+int main(int argc, char* argv[])
 {
     int ret = 0;
 
-    ret = run_test_cases();
+    if(argc != 2 || (strcmp(argv[1],"system") != 0 && strcmp(argv[1],"user")) ) {
+        FPRINTF("invalid command formant.  command format : %s system|user\n", argv[0]);
+        exit(1);
+    }
+
+    ret = run_test_cases(argv[1]);
 
     return ret;
 }

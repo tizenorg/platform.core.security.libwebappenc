@@ -31,6 +31,10 @@ extern "C" {
  */
 
 
+/**
+ * @brief WAE Errors.
+ * @since_tizen 3.0
+ */
 typedef enum
 {
     WAE_ERROR_NONE                     =   0x00, /**< Successful */
@@ -46,11 +50,22 @@ typedef enum
 } wae_error_e;
 
 /**
+ * @brief Application Type.
+ * @since_tizen 3.0
+ */
+typedef enum
+{
+    WAE_DOWNLOADED_NORMAL_APP = 0, /**< Downloaded Normal Application*/
+    WAE_DOWNLOADED_GLOBAL_APP = 1, /**< Downloaded Global Application*/
+    WAE_PRELOADED_APP         = 2  /**< Preloaded Application*/
+} wae_app_type_e;
+
+/**
  * @brief Encrypts web application data with internal key(APP DEK: Application Data Encryption Key).
  *
  * @since_tizen 3.0
  * @param[in] pPkgId   The package id of an application.
- * @param[in] isPreloaded True(!=0) if the application is preloaded, otherwise false(==0).
+ * @param[in] appType  The application type.
  * @param[in] pData    The data block to be encrypted.
  * @param[in] dataLen  The length of the data block.
  * @param[out] ppEncryptedData The data block contaning encrypted data block. Memory allocated for ppEncryptedData. Has to be freed by free() function.
@@ -66,14 +81,14 @@ typedef enum
  *
  * @see wae_decrypt_web_application()
  */
-int wae_encrypt_web_application(const char* pPkgId, int isPreloaded, const unsigned char* pData, size_t dataLen, unsigned char** ppEncryptedData, size_t* pEncDataLen);
+int wae_encrypt_web_application(const char* pPkgId, wae_app_type_e appType, const unsigned char* pData, size_t dataLen, unsigned char** ppEncryptedData, size_t* pEncDataLen);
 
 /**
  * @brief Encrypts web application data with internal key.
  *
  * @since_tizen 3.0
  * @param[in] pPkgId   The package id of an application.
- * @param[in] isPreloaded True(!=0) if the application is preloaded, otherwise false(==0).
+ * @param[in] appType  The application type.
  * @param[in] pData    The data block to be decrypted.
  * @param[in] dataLen  The length of the data block.
  * @param[out] ppDecryptedData Data block contaning decrypted data block. Memory allocated for ppEncryptedData. Has to be freed by free() function.
@@ -89,13 +104,14 @@ int wae_encrypt_web_application(const char* pPkgId, int isPreloaded, const unsig
  *
  * @see wae_encrypt_web_application()
  */
-int wae_decrypt_web_application(const char* pPkgId, int isPreloaded, const unsigned char* pData, size_t dataLen, unsigned char** ppDecryptedData, size_t* pDecDataLen);
+int wae_decrypt_web_application(const char* pPkgId, wae_app_type_e appType, const unsigned char* pData, size_t dataLen, unsigned char** ppDecryptedData, size_t* pDecDataLen);
 
 /**
  * @brief Remove a APP DEK(Application Data Encryption Key) used for encrytpion and decryption of a web application.
  *
  * @since_tizen 3.0
  * @param[in] pPkgId   The package id of an application.
+ * @param[in] appType  The application type.
  *
  * @return #WAE_ERROR_NONE on success, otherwise a negative error value
  * @retval #WAE_ERROR_INVALID_PARAMETER   Invalid input parameter
@@ -105,7 +121,7 @@ int wae_decrypt_web_application(const char* pPkgId, int isPreloaded, const unsig
  * @retval #WAE_ERROR_UNKNOWN             Failed with unknown reason
  *
  */
-int wae_remove_app_dek(const char* pPkgId);
+int wae_remove_app_dek(const char* pPkgId, wae_app_type_e appType);
 
 
 /**

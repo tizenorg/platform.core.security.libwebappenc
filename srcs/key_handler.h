@@ -30,6 +30,7 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include "web_app_enc.h"
 
 #define APP_DEK_ALIAS_PFX "APP_DEK_"
 #define APP_DEK_LOADING_DONE_ALIAS "APP_DEKS_LOADING_FINISHED"
@@ -53,13 +54,13 @@ unsigned char* _get_app_dek_from_cache(const char* pkgId);
 void _add_app_dek_to_cache(const char* pkgId, unsigned char* dek);
 void _remove_app_dek_from_cache(const char* pkgId);
 int _get_random(size_t length, unsigned char* random);
-void _get_alias(const char* pPkgId, char* alias, size_t buff_len);
+void _get_alias(const char* pPkgId, wae_app_type_e appType, char* alias, size_t buff_len);
 void _get_dek_kek_alias(char* alias, size_t buff_len);
 void _get_dek_loading_done_alias(char* alias, size_t buff_len);
 const char* _get_dek_kek_pub_key_path();
 const char* _get_dek_kek_pri_key_path();
 const char* _get_dek_store_path();
-int _add_dek_to_key_manager(const char* pPkgId, const unsigned char* pDek, size_t len);
+int _add_dek_to_key_manager(const char* pPkgId, wae_app_type_e appType, const unsigned char* pDek, size_t len);
 int _get_preloaded_app_dek_file_path(const char* pPkgId, char *path);
 int _extract_pkg_id_from_file_name(const char* fileName, char* pkgId);
 int _read_encrypted_app_dek_from_file(const char* pPkgId, unsigned char** encrypted_app_dek, size_t*len);
@@ -71,12 +72,12 @@ int _get_app_deks_loaded();
 int _set_app_deks_loaded();
 int _clear_app_deks_loaded();
 
-int get_app_dek(const char* pPkgId, unsigned char** ppDek, size_t *dekLen);
-int create_app_dek(const char* pPkgId, unsigned char** ppDek, size_t *dekLen);
+int get_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDek, size_t *dekLen);
+int create_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDek, size_t *dekLen);
 int get_preloaded_app_dek(const char* pPkgId, unsigned char** ppDek, size_t* dekLen);
 int create_preloaded_app_dek(const char* pPkgId, unsigned char** ppDek, size_t *dekLen);
 int load_preloaded_app_deks(int reload);
-int remove_app_dek(const char* pPkgId);
+int remove_app_dek(const char* pPkgId, wae_app_type_e appType);
 
 
 #ifdef __cplusplus
