@@ -336,13 +336,16 @@ int wae_tc_get_alias()
     const char* pkgId = "TEST_PKG_ID";
     char alias[256] = {0, };
 
-    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, alias, sizeof(alias));
-    FPRINTF("...pkgid=%s, alias for normal app=%s\n", pkgId, alias);
+    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, WAE_TRUE, alias, sizeof(alias));
+    FPRINTF("...pkgid=%s, alias for normal for save. app=%s\n", pkgId, alias);
 
-    _get_alias(pkgId, WAE_DOWNLOADED_GLOBAL_APP, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, WAE_FALSE, alias, sizeof(alias));
+    FPRINTF("...pkgid=%s, alias for normal for get. app=%s\n", pkgId, alias);
+
+    _get_alias(pkgId, WAE_DOWNLOADED_GLOBAL_APP, WAE_TRUE, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for global app=%s\n", pkgId, alias);
 
-    _get_alias(pkgId, WAE_PRELOADED_APP, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_PRELOADED_APP, WAE_TRUE, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for preloaded app=%s\n", pkgId, alias);
 
     return ret;

@@ -35,6 +35,7 @@
 
 #define APP_DEK_KEK_PRIKEY_PASSWORD "wae_appdek_kek_1q2w3e4r"
 
+#define WRT_INSTALLER_LABEL "/User"
 
 typedef struct _dek_cache_element{
     char          pkgId[MAX_PKGID_LEN];
@@ -138,13 +139,22 @@ int _get_random(size_t length, unsigned char* random)
     return WAE_ERROR_NONE;
 }
 
-void _get_alias(const char* pPkgId, wae_app_type_e appType, char* alias, size_t buff_len)
+void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* alias, size_t buff_len)
 {
     if(appType == WAE_DOWNLOADED_NORMAL_APP) {
-        snprintf(alias, buff_len, "%s%s",
+        if(forSave == WAE_TRUE) {
+            snprintf(alias, buff_len, "%s%s",
                             APP_DEK_ALIAS_PFX,
                             pPkgId);
+        }else{
+            snprintf(alias, buff_len, "%s%s%s%s",
+                            WRT_INSTALLER_LABEL,
+                            ckmc_label_name_separator,
+                            APP_DEK_ALIAS_PFX,
+                            pPkgId);
+        }
     }else { // system alias
+        (void) appType;
         snprintf(alias, buff_len, "%s%s%s%s",
                             ckmc_label_shared_owner,
                             ckmc_label_name_separator,
@@ -198,24 +208,24 @@ int _add_dek_to_key_manager(const char* pPkgId, wae_app_type_e appType, const un
     policy.extractable = true;
 
     // save app_dek in key_manager
-    _get_alias(pPkgId, appType, alias, sizeof(alias));
+    _get_alias(pPkgId, appType, WAE_TRUE, alias, sizeof(alias));
 
     // even if it fails to remove, ignore it.
     ret = _to_wae_error( ckmc_remove_alias(alias));
 
     ret = _to_wae_error(ckmc_save_data(alias, buff, policy));
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to add APP_DEK to key-manager. pkgId=%s, alias=%s, ret=%d", pPkgId, alias, ret);
+        WAE_SLOGE("WAE: Fail to add APP_DEK to key-manager. pkgId=%s, alias=%s, ret=%d", pPkgId, alias, ret);
         goto error;
     }
 
     // share app_dek for web app laucher to use app_dek
     ret = _to_wae_error(ckmc_set_permission(alias, pPkgId, CKMC_PERMISSION_READ));
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to set_permission to APP_DEK. pkgId=%s, ret=%d", pPkgId, ret);
+        WAE_SLOGE("WAE: Fail to set_permission to APP_DEK. pkgId=%s, ret=%d", pPkgId, ret);
         goto error;
     }
-    WAE_SLOGI("Success to add APP_DEK to key-manager. pkgId=%s", pPkgId);
+    WAE_SLOGI("WAE: Success to add APP_DEK to key-manager. pkgId=%s, alias=%s", pPkgId, alias);
 error:
     return ret;
 }
@@ -231,13 +241,13 @@ int _extract_pkg_id_from_file_name(const char* fileName, char* pkgId)
 {
     char* start = strstr(fileName, APP_DEK_FILE_PFX);
     if(start == NULL){
-        WAE_SLOGE("Fail to extract pkgid from APP_DEK file. fileName=%s", fileName);
+        WAE_SLOGE("WAE: Fail to extract pkgid from APP_DEK file. fileName=%s", fileName);
         return WAE_ERROR_FILE;
     }
     start = start + strlen(APP_DEK_FILE_PFX) + 1;
     char* end = strstr(fileName, ".adek");
     if(start == NULL){
-        WAE_SLOGE("Fail to extract pkgid from APP_DEK file. fileName=%s", fileName);
+        WAE_SLOGE("WAE: Fail to extract pkgid from APP_DEK file. fileName=%s", fileName);
         return WAE_ERROR_FILE;
     }
     strncpy(pkgId, start, end-start);
@@ -270,7 +280,7 @@ int _read_from_file(const char* path, unsigned char** data, size_t* len)
 
     f = fopen(path, "r");
     if( f == NULL) {
-        WAE_SLOGE("Fail to open a file. file=%s", path);
+        WAE_SLOGE("WAE: Fail to open a file. file=%s", path);
         ret = WAE_ERROR_FILE;
         goto error;
     }
@@ -281,7 +291,7 @@ int _read_from_file(const char* path, unsigned char** data, size_t* len)
 
     file_contents = (unsigned char*) malloc(file_len);
     if(file_contents == NULL) {
-         WAE_SLOGE("Fail to allocate memory for encrypted_app_dek");
+         WAE_SLOGE("WAE: Fail to allocate memory for encrypted_app_dek");
          ret = WAE_ERROR_MEMORY;
          goto error;
     }
@@ -312,14 +322,14 @@ int _write_to_file(const char* path, const unsigned char* data, size_t len)
 
     f = fopen(path, "w");
     if( f == NULL) {
-        WAE_SLOGE("Fail to open a file. file=%s", path);
+        WAE_SLOGE("WAE: Fail to open a file. file=%s", path);
         ret = WAE_ERROR_FILE;
         goto error;
     }
 
     write_len = fwrite(data, 1, len, f);
     if(write_len != (int) len) {
-        WAE_SLOGE("Fail to write a file. file=%s", path);
+        WAE_SLOGE("WAE: Fail to write a file. file=%s", path);
         ret = WAE_ERROR_FILE;
         goto error;
     }
@@ -344,11 +354,12 @@ int get_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDe
     cached_dek = _get_app_dek_from_cache(pPkgId);
     if(cached_dek == NULL) {
         // get APP_DEK from system database
-        _get_alias(pPkgId, appType, alias, sizeof(alias));
+        _get_alias(pPkgId, appType, WAE_FALSE, alias, sizeof(alias));
 
         ret = _to_wae_error(ckmc_get_data(alias, password, &pDekBuffer));
         if(ret != WAE_ERROR_NONE) {
-            WAE_SLOGI("Fail to get APP_DEK from key-manager. alias=%s, ret=%d", alias, ret);
+            WAE_SLOGI("WAE: Fail to get APP_DEK from key-manager. pkgId=%s, alias=%s, ret=%d",
+                      pPkgId, alias, ret);
             goto error;
         }
     }
@@ -363,7 +374,7 @@ int get_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDe
 
     *ppDek = pDek;
     *dekLen = DEK_LEN;
-    WAE_SLOGI("Success to get APP_DEK from key-manager. pkgId=%s", pPkgId);
+    WAE_SLOGI("WAE: Success to get APP_DEK from key-manager. pkgId=%s, alias=%s", pPkgId, alias);
 error:
     if(pDekBuffer != NULL)
         ckmc_buffer_free(pDekBuffer);
@@ -386,7 +397,7 @@ int create_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** p
 
     ret = _get_random(DEK_LEN, dek);
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to get random for APP_DEK. pkgId=%s, ret=%d", pPkgId, ret);
+        WAE_SLOGE("WAE: Fail to get random for APP_DEK. pkgId=%s, ret=%d", pPkgId, ret);
         goto error;
     }
 
@@ -402,7 +413,7 @@ int create_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** p
     *ppDek = dek;
     *dekLen = DEK_LEN;
 
-    WAE_SLOGI("Success to create APP_DEK and store it in key-manager. pkgId=%s", pPkgId);
+    WAE_SLOGI("WAE: Success to create APP_DEK and store it in key-manager. pkgId=%s", pPkgId);
 error:
     if(ret != WAE_ERROR_NONE && dek != NULL)
         free(dek);
@@ -419,14 +430,14 @@ int get_preloaded_app_dek(const char* pPkgId, unsigned char** ppDek, size_t* dek
     // get dek from cache
     cached_dek = _get_app_dek_from_cache(pPkgId);
     if(cached_dek == NULL) {
-        WAE_SLOGE("Fail to get APP_DEK from cache for preloaded app");
+        WAE_SLOGE("WAE: Fail to get APP_DEK from cache for preloaded app");
         ret = WAE_ERROR_NO_KEY;
         goto error;
     }
 
     dek = (unsigned char*) malloc(DEK_LEN);
     if(dek == NULL) {
-        WAE_SLOGE("Fail to allocate memory for preloaded app dek");
+        WAE_SLOGE("WAE: Fail to allocate memory for preloaded app dek");
         ret = WAE_ERROR_MEMORY;
         goto error;
     }
@@ -465,20 +476,20 @@ int create_preloaded_app_dek(const char* pPkgId, unsigned char** ppDek, size_t* 
     // encrypt APP_DEK with APP_DEK_KEK
     ret = _read_from_file(_get_dek_kek_pub_key_path(), &pubKey, &pubKeyLen);
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to read APP_DEK_KEK Public Key");
+        WAE_SLOGE("WAE: Fail to read APP_DEK_KEK Public Key");
         goto error;
     }
 
     ret = encrypt_app_dek(pubKey, pubKeyLen, dek, DEK_LEN, &encrypted_app_dek, &encrypted_app_dek_len);
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to encrypt APP_DEK with APP_DEK_KEK");
+        WAE_SLOGE("WAE: Fail to encrypt APP_DEK with APP_DEK_KEK");
         goto error;
     }
 
     // write APP_DEK in a file
     ret = _write_encrypted_app_dek_to_file(pPkgId, encrypted_app_dek, encrypted_app_dek_len);
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to write encrypted APP_DEK. pkgId=%s", pPkgId);
+        WAE_SLOGE("WAE: Fail to write encrypted APP_DEK. pkgId=%s", pPkgId);
         goto error;
     }
 
@@ -487,7 +498,7 @@ int create_preloaded_app_dek(const char* pPkgId, unsigned char** ppDek, size_t* 
 
     *ppDek = dek;
     *dekLen = DEK_LEN;
-    WAE_SLOGI("Success to create preleaded APP_DEK and write it in initail value file. pkgId=%s", pPkgId);
+    WAE_SLOGI("WAE: Success to create preleaded APP_DEK and write it in initail value file. pkgId=%s", pPkgId);
 
 error:
     if(pubKey != NULL)
@@ -506,7 +517,7 @@ int _get_app_dek_kek(unsigned char** ppDekKek, size_t* kekLen)
 
     ret = _read_from_file(_get_dek_kek_pri_key_path(), ppDekKek, kekLen);
     if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to read APP_DEK_KEK Private Key");
+        WAE_SLOGE("WAE: Fail to read APP_DEK_KEK Private Key");
         return ret;
     }
 /*
@@ -555,11 +566,11 @@ int _get_app_deks_loaded()
 
     ret = _to_wae_error(ckmc_get_data(loading_done_alias, NULL, &pBuffer));
     if(ret == WAE_ERROR_NO_KEY) {
-        WAE_SLOGI("APP_DEK_LOADING was not done");
+        WAE_SLOGI("WAE: APP_DEK_LOADING was not done");
     } else if(ret == WAE_ERROR_NONE) {
-        WAE_SLOGI("APP_DEK_LOADING was already done");
+        WAE_SLOGI("WAE: APP_DEK_LOADING was already done");
     } else {
-        WAE_SLOGE("Fail to get information from key-manager about APP_DEK_LOADING_DONE_ALIAS. ret=%d", ret);
+        WAE_SLOGE("WAE: Fail to get information from key-manager about APP_DEK_LOADING_DONE_ALIAS. ret=%d", ret);
         goto error;
     }
 
@@ -588,10 +599,10 @@ int _set_app_deks_loaded()
 
     ret = _to_wae_error(ckmc_save_data(loading_done_alias, buff, policy));
     if(ret == WAE_ERROR_KEY_EXISTS) {
-        WAE_SLOGI("APP_DEK_LOADING was already done");
+        WAE_SLOGI("WAE: APP_DEK_LOADING was already done");
         ret = WAE_ERROR_NONE;
     } else if(ret != WAE_ERROR_NONE) {
-        WAE_SLOGE("Fail to set APP_DEK_LOADING_DONE_ALIAS to key-manager. ret=%d", ret);
+        WAE_SLOGE("WAE: Fail to set APP_DEK_LOADING_DONE_ALIAS to key-manager. ret=%d", ret);
         goto error;
     }
 
@@ -735,7 +746,7 @@ int remove_app_dek(const char* pPkgId, wae_app_type_e appType)
     int ret = CKMC_ERROR_NONE;
     char alias[MAX_ALIAS_LEN] = {0,};
 
-    _get_alias(pPkgId, appType, alias,sizeof(alias));
+    _get_alias(pPkgId, appType, WAE_TRUE, alias,sizeof(alias));
 
     ret = _to_wae_error(ckmc_remove_alias(alias));
     if(ret != WAE_ERROR_NONE) {
