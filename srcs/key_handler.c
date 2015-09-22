@@ -156,7 +156,7 @@ void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* a
     }else { // system alias
         (void) appType;
         snprintf(alias, buff_len, "%s%s%s%s",
-                            ckmc_label_shared_owner,
+                            ckmc_owner_id_system,
                             ckmc_label_name_separator,
                             APP_DEK_ALIAS_PFX,
                             pPkgId);
@@ -166,7 +166,7 @@ void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* a
 void _get_dek_kek_alias(char* alias, size_t buff_len)
 {
     snprintf(alias, buff_len, "%s%s%s",
-                            ckmc_label_shared_owner,
+                            ckmc_owner_id_system,
                             ckmc_label_name_separator,
                             APP_DEK_KEK_ALIAS);
 }
@@ -174,7 +174,7 @@ void _get_dek_kek_alias(char* alias, size_t buff_len)
 void _get_dek_loading_done_alias(char* alias, size_t buff_len)
 {
     snprintf(alias, buff_len, "%s%s%s",
-                            ckmc_label_shared_owner,
+                            ckmc_owner_id_system,
                             ckmc_label_name_separator,
                             APP_DEK_LOADING_DONE_ALIAS);
 }
