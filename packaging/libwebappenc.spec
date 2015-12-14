@@ -15,8 +15,6 @@ BuildRequires: pkgconfig(dlog)
 BuildRequires: pkgconfig(openssl)
 BuildRequires: pkgconfig(key-manager)
 BuildRequires: pkgconfig(libtzplatform-config)
-Requires: openssl
-Requires: pkgconfig(libtzplatform-config)
 
 %description
 Web application encryption and decryption service
