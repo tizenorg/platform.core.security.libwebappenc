@@ -231,9 +231,16 @@ error:
 }
 
 
-int _get_preloaded_app_dek_file_path(const char* pPkgId, char *path)
+int _get_preloaded_app_dek_file_path(const char* pPkgId, size_t size, char *path)
 {
-    sprintf(path, "%s/%s_%s.adek", _get_dek_store_path(), APP_DEK_FILE_PFX, pPkgId);
+    int ret = -1;
+
+    ret = snprintf(path, size, "%s/%s_%s.adek",
+            _get_dek_store_path(), APP_DEK_FILE_PFX, pPkgId);
+
+    if (ret < 0)
+        return WAE_ERROR_INVALID_PARAMETER; /* buffer size too small */
+
     return WAE_ERROR_NONE;
 }
 
@@ -258,14 +265,14 @@ int _extract_pkg_id_from_file_name(const char* fileName, char* pkgId)
 int _read_encrypted_app_dek_from_file(const char* pPkgId, unsigned char** encrypted_app_dek, size_t *len)
 {
     char path[MAX_PATH_LEN] = {0,};
-    _get_preloaded_app_dek_file_path(pPkgId, path);
+    _get_preloaded_app_dek_file_path(pPkgId, sizeof(path), path);
     return _read_from_file(path, encrypted_app_dek, len);
 }
 
 int _write_encrypted_app_dek_to_file(const char* pPkgId, const unsigned char* encrypted_app_dek, size_t len)
 {
     char path[MAX_PATH_LEN] = {0,};
-    _get_preloaded_app_dek_file_path(pPkgId, path);
+    _get_preloaded_app_dek_file_path(pPkgId, sizeof(path), path);
     return _write_to_file( path, encrypted_app_dek, len);
 }
 
@@ -683,7 +690,13 @@ int load_preloaded_app_deks(int reload)
         // regular file && start with KEY_MANAGER_INITIAL_VALUE_FILE_PFX
         if(entry.d_type == DT_REG && strstr(entry.d_name, APP_DEK_FILE_PFX) != NULL) {
             memset(file_path_buff, 0, sizeof(file_path_buff));
-            sprintf(file_path_buff, "%s/%s", _get_dek_store_path(), entry.d_name);
+            ret = snprintf(file_path_buff, sizeof(file_path_buff), "%s/%s",
+                    _get_dek_store_path(), entry.d_name);
+            if(ret < 0) {
+                WAE_SLOGE("Failed to make file path by snprintf.");
+                ret = WAE_ERROR_INVALID_PARAMETER; /* buffer size too small */
+                goto error;
+            }
 
             ret = _extract_pkg_id_from_file_name(entry.d_name, pkgId);
             if(ret != WAE_ERROR_NONE) {

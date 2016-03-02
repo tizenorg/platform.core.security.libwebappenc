@@ -430,7 +430,7 @@ int wae_tc_get_preloaded_app_dek_file_path()
     char path[256];
 
     FPRINTF("...expected path : %s\n", expectedPath);
-    ret = _get_preloaded_app_dek_file_path(pkgId, path);
+    ret = _get_preloaded_app_dek_file_path(pkgId, sizeof(path), path);
     FPRINTF("...returned path : %s\n", path);
 
     if(ret != WAE_ERROR_NONE || strncmp(expectedPath, path, strlen(expectedPath)) != 0) {
@@ -623,8 +623,8 @@ int wae_tc_load_preloaded_app_deks()
     char path2[MAX_PATH_LEN] = {0, };
     FILE *f2 = NULL;
 
-    _get_preloaded_app_dek_file_path(pkgId1, path1);
-    _get_preloaded_app_dek_file_path(pkgId2, path2);
+    _get_preloaded_app_dek_file_path(pkgId1, sizeof(path1), path1);
+    _get_preloaded_app_dek_file_path(pkgId2, sizeof(path2), path2);
 
     // remove old test data
     remove_app_dek(pkgId1, WAE_PRELOADED_APP);

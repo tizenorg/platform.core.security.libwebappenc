@@ -61,7 +61,7 @@ const char* _get_dek_kek_pub_key_path();
 const char* _get_dek_kek_pri_key_path();
 const char* _get_dek_store_path();
 int _add_dek_to_key_manager(const char* pPkgId, wae_app_type_e appType, const unsigned char* pDek, size_t len);
-int _get_preloaded_app_dek_file_path(const char* pPkgId, char *path);
+int _get_preloaded_app_dek_file_path(const char* pPkgId, size_t size, char *path);
 int _extract_pkg_id_from_file_name(const char* fileName, char* pkgId);
 int _read_encrypted_app_dek_from_file(const char* pPkgId, unsigned char** encrypted_app_dek, size_t*len);
 int _write_encrypted_app_dek_to_file(const char* pPkgId, const unsigned char* encrypted_app_dek, size_t len);
