@@ -294,6 +294,12 @@ int _read_from_file(const char* path, unsigned char** data, size_t* len)
 
     fseek(f, 0, SEEK_END); // move to the end of a file
     file_len = ftell(f);
+    if (file_len <= 0) {
+        WAE_SLOGE("WAE: Failed to get file size by ftell. ret: %d", file_len);
+        ret = WAE_ERROR_FILE;
+        goto error;
+    }
+
     fseek(f, 0, SEEK_SET); // move to the start of a file
 
     file_contents = (unsigned char*) malloc(file_len);

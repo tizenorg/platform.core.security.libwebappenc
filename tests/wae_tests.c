@@ -613,7 +613,6 @@ int wae_tc_load_preloaded_app_deks()
     unsigned char* readDek1 = NULL;
     size_t readDekLen1 = 0;
     char path1[MAX_PATH_LEN] = {0, };
-    FILE *f1 = NULL;
 
     const char* pkgId2 = "TEST_PKGID_2";
     unsigned char* dek2 = NULL;
@@ -621,7 +620,6 @@ int wae_tc_load_preloaded_app_deks()
     unsigned char* readDek2 = NULL;
     size_t readDekLen2 = 0;
     char path2[MAX_PATH_LEN] = {0, };
-    FILE *f2 = NULL;
 
     _get_preloaded_app_dek_file_path(pkgId1, sizeof(path1), path1);
     _get_preloaded_app_dek_file_path(pkgId2, sizeof(path2), path2);
@@ -691,14 +689,10 @@ error:
         free(dek1);
     if(readDek1 != NULL)
         free(readDek1);
-    if(f1 != NULL)
-        fclose(f1);
     if(dek2 != NULL)
         free(dek2);
     if(readDek2 != NULL)
         free(readDek2);
-    if(f2 != NULL)
-        fclose(f2);
 
     return ret;
 }
