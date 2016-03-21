@@ -1,6 +1,14 @@
 Code-Review+2: sangwan kwon <sangwan.kwon@samsung.com>
 Verified+1: sangwan kwon <sangwan.kwon@samsung.com>
 Submitted-by: kyungwook tak <k.tak@samsung.com>
+Submitted-at: Fri, 11 Mar 2016 00:52:05 -0700
+Reviewed-on: https://review.tizen.org/gerrit/61905
+Project: platform/core/security/libwebappenc
+Branch: refs/heads/tizen
+
+Code-Review+2: sangwan kwon <sangwan.kwon@samsung.com>
+Verified+1: sangwan kwon <sangwan.kwon@samsung.com>
+Submitted-by: kyungwook tak <k.tak@samsung.com>
 Submitted-at: Thu, 10 Mar 2016 23:52:05 -0800
 Reviewed-on: https://review.tizen.org/gerrit/61905
 Project: platform/core/security/libwebappenc
