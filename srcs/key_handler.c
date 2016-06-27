@@ -35,7 +35,7 @@
 
 #define APP_DEK_KEK_PRIKEY_PASSWORD "wae_appdek_kek_1q2w3e4r"
 
-#define WRT_INSTALLER_LABEL "/System"
+#define WRT_INSTALLER_LABEL "/User"
 
 typedef struct _dek_cache_element{
     char          pkgId[MAX_PKGID_LEN];
@@ -139,15 +139,22 @@ int _get_random(size_t length, unsigned char* random)
     return WAE_ERROR_NONE;
 }
 
-void _get_alias(const char* pPkgId, wae_app_type_e appType, char* alias, size_t buff_len)
+void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* alias, size_t buff_len)
 {
     if(appType == WAE_DOWNLOADED_NORMAL_APP) {
-        snprintf(alias, buff_len, "%s%s%s%s",
+        if(forSave == WAE_TRUE) {
+            snprintf(alias, buff_len, "%s%s",
+                            APP_DEK_ALIAS_PFX,
+                            pPkgId);
+        }else{
+            snprintf(alias, buff_len, "%s%s%s%s",
                             WRT_INSTALLER_LABEL,
                             ckmc_owner_id_separator,
                             APP_DEK_ALIAS_PFX,
                             pPkgId);
+        }
     }else { // system alias
+        (void) appType;
         snprintf(alias, buff_len, "%s%s%s%s",
                             ckmc_owner_id_system,
                             ckmc_owner_id_separator,
@@ -201,7 +208,7 @@ int _add_dek_to_key_manager(const char* pPkgId, wae_app_type_e appType, const un
     policy.extractable = true;
 
     // save app_dek in key_manager
-    _get_alias(pPkgId, appType, alias, sizeof(alias));
+    _get_alias(pPkgId, appType, WAE_TRUE, alias, sizeof(alias));
 
     // even if it fails to remove, ignore it.
     ret = _to_wae_error( ckmc_remove_alias(alias));
@@ -360,12 +367,12 @@ int get_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDe
     cached_dek = _get_app_dek_from_cache(pPkgId);
     if(cached_dek == NULL) {
         // get APP_DEK from system database
-        _get_alias(pPkgId, appType, alias, sizeof(alias));
+        _get_alias(pPkgId, appType, WAE_FALSE, alias, sizeof(alias));
 
         ret = _to_wae_error(ckmc_get_data(alias, password, &pDekBuffer));
         if(ret != WAE_ERROR_NONE) {
-            WAE_SLOGI("WAE: Fail to get APP_DEK from key-manager. pkgId=%s, alias=%s, appType=%d, ret=%d",
-                      pPkgId, alias, appType, ret);
+            WAE_SLOGI("WAE: Fail to get APP_DEK from key-manager. pkgId=%s, alias=%s, ret=%d",
+                      pPkgId, alias, ret);
             goto error;
         }
     }
@@ -758,7 +765,7 @@ int remove_app_dek(const char* pPkgId, wae_app_type_e appType)
     int ret = CKMC_ERROR_NONE;
     char alias[MAX_ALIAS_LEN] = {0,};
 
-    _get_alias(pPkgId, appType, alias,sizeof(alias));
+    _get_alias(pPkgId, appType, WAE_TRUE, alias,sizeof(alias));
 
     ret = _to_wae_error(ckmc_remove_alias(alias));
     if(ret != WAE_ERROR_NONE) {

@@ -54,7 +54,7 @@ unsigned char* _get_app_dek_from_cache(const char* pkgId);
 void _add_app_dek_to_cache(const char* pkgId, unsigned char* dek);
 void _remove_app_dek_from_cache(const char* pkgId);
 int _get_random(size_t length, unsigned char* random);
-void _get_alias(const char* pPkgId, wae_app_type_e appType, char* alias, size_t buff_len);
+void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* alias, size_t buff_len);
 void _get_dek_kek_alias(char* alias, size_t buff_len);
 void _get_dek_loading_done_alias(char* alias, size_t buff_len);
 const char* _get_dek_kek_pub_key_path();
