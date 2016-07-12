@@ -6,6 +6,7 @@ SET(WEB_APP_ENC_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/web_app_enc.c
     ${CMAKE_CURRENT_SOURCE_DIR}/key_handler.c
     ${CMAKE_CURRENT_SOURCE_DIR}/crypto_service.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ss_key_generator.c
 )
 
 INCLUDE_DIRECTORIES(

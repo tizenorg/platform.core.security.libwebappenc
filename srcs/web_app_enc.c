@@ -27,7 +27,7 @@
 #include "key_handler.h"
 #include "crypto_service.h"
 #include "wae_log.h"
-
+#include "ss_key_generator.h"
 
 int _wae_encrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e appType,
                                 const unsigned char* pData, size_t dataLen,
@@ -101,7 +101,20 @@ int _wae_decrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e a
     }
 
     ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
-    if(ret != WAE_ERROR_NONE) {
+    if(appType != WAE_PRELOADED_APP && ret == WAE_ERROR_NO_KEY) {
+        WAE_SLOGI("app dek for decrypt downloaded app(%s) isn't exist. This case would be "
+                  "needed secure-storage data migration.", pPkgId);
+
+        ret = get_old_duk(pPkgId, &pDek, &dekLen);
+        if(ret != WAE_ERROR_NONE)
+            goto error;
+
+        ret = _add_dek_to_key_manager(pPkgId, appType, pDek, dekLen);
+        if(ret != WAE_ERROR_NONE)
+            goto error;
+
+        _add_app_dek_to_cache(pPkgId, pDek);
+    } else if(ret != WAE_ERROR_NONE) {
         goto error;
     }
 
