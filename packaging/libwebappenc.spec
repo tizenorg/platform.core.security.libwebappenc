@@ -3,7 +3,7 @@ Summary: Web application encryption service
 Version: 0.1.0
 Release: 1
 Group:   Security/Libraries
-License: Apache-2.0
+License: Apache-2.0 and BSL-1.0
 Source0: %{name}-%{version}.tar.gz
 
 Requires(post):   /sbin/ldconfig
@@ -20,6 +20,7 @@ Web application encryption and decryption service
 
 %package devel
 Summary:    Web application encryption service (development files)
+License:    Apache-2.0
 Group:      Security/Development
 Requires:   %{name} = %{version}-%{release}
 
@@ -28,8 +29,10 @@ Web application encryption and decryption service (development files)
 
 %package test
 Summary:    Web application encryption service (test)
+License:    Apache-2.0 and BSL-1.0
 Group:      Security/Development
-Requires:   %{name} = %{version}-%{release}
+BuildRequires: boost-devel
+Requires:      %{name} = %{version}-%{release}
 
 %description test
 Web application encryption and decryption service (test)
@@ -82,6 +85,7 @@ fi
 %files
 %manifest %{name}.manifest
 %license LICENSE
+%license LICENSE.BSL-1.0
 %{_libdir}/%{name}.so.*
 %{_unitdir}/webappenc-initializer.service
 %{_unitdir}/multi-user.target.wants/webappenc-initializer.service
@@ -96,4 +100,7 @@ fi
 
 %files test
 %manifest %{name}-test.manifest
+%license LICENSE
+%license LICENSE.BSL-1.0
 %{bin_dir}/wae_tests
+%{_libdir}/libwae_tests_common.so*
