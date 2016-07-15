@@ -8,4 +8,3 @@ Version: @VERSION@
 Requires: @PC_REQUIRED@
 Libs: @PC_LDFLAGS@
 Cflags: @PC_CFLAGS@
-

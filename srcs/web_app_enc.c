@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,200 +19,213 @@
  * @version     1.0
  * @brief       provides fucntions for encryption and decryption of web application.
  */
+#include "web_app_enc.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "web_app_enc.h"
 #include "key_handler.h"
 #include "crypto_service.h"
 #include "wae_log.h"
 
-
-int _wae_encrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e appType,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppEncryptedData, size_t* pEncDataLen)
+int _wae_encrypt_downloaded_web_application(const char *pPkgId, wae_app_type_e appType,
+		const unsigned char *pData, size_t dataLen,
+		unsigned char **ppEncryptedData, size_t *pEncDataLen)
 {
-    int ret = WAE_ERROR_NONE;
-    unsigned char *pDek = NULL;
-    size_t dekLen = -1;
+	int ret = WAE_ERROR_NONE;
+	unsigned char *pDek = NULL;
+	size_t dekLen = -1;
 
-    if(pPkgId == NULL) {
-        WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(pData == NULL || dataLen <= 0) {
-        WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(ppEncryptedData == NULL || pEncDataLen == NULL) {
-        WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
+	if (pPkgId == NULL) {
+		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    // get APP_DEK.
-    //   if not exists, create APP_DEK
-    ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
-    if(ret == WAE_ERROR_NO_KEY) {
-        ret = create_app_dek(pPkgId, appType, &pDek, &dekLen);
-    }
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (pData == NULL || dataLen <= 0) {
+		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    // encrypt
-    ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (ppEncryptedData == NULL || pEncDataLen == NULL) {
+		WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
+
+	// get APP_DEK.
+	//   if not exists, create APP_DEK
+	ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
+
+	if (ret == WAE_ERROR_NO_KEY) {
+		ret = create_app_dek(pPkgId, appType, &pDek, &dekLen);
+	}
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
+
+	// encrypt
+	ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
 
 error:
-    if(pDek != NULL)
-        free(pDek);
+	if (pDek != NULL)
+		free(pDek);
 
-    return ret;
+	return ret;
 }
 
-int _wae_decrypt_downloaded_web_application(const char* pPkgId, wae_app_type_e appType,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppDecryptedData, size_t* pDecDataLen)
+int _wae_decrypt_downloaded_web_application(const char *pPkgId, wae_app_type_e appType,
+		const unsigned char *pData, size_t dataLen,
+		unsigned char **ppDecryptedData, size_t *pDecDataLen)
 {
-    int ret = WAE_ERROR_NONE;
-    unsigned char *pDek = NULL;
-    size_t dekLen = -1;
+	int ret = WAE_ERROR_NONE;
+	unsigned char *pDek = NULL;
+	size_t dekLen = -1;
 
-    if(pPkgId == NULL) {
-        WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(pData == NULL || dataLen <= 0) {
-        WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(ppDecryptedData == NULL || pDecDataLen == NULL) {
-        WAE_SLOGE("Invalid Parameter. ppDecryptedData or pDecDataLen is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
+	if (pPkgId == NULL) {
+		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (pData == NULL || dataLen <= 0) {
+		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    // decrypt
-    ret = decrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppDecryptedData, pDecDataLen);
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (ppDecryptedData == NULL || pDecDataLen == NULL) {
+		WAE_SLOGE("Invalid Parameter. ppDecryptedData or pDecDataLen is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
+
+	ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
+
+	// decrypt
+	ret = decrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppDecryptedData, pDecDataLen);
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
 
 error:
-    if(pDek != NULL)
-        free(pDek);
+	if (pDek != NULL)
+		free(pDek);
 
-    return ret;
+	return ret;
 }
 
-int _wae_encrypt_preloaded_web_application(const char* pPkgId,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppEncryptedData, size_t* pEncDataLen)
+int _wae_encrypt_preloaded_web_application(const char *pPkgId,
+		const unsigned char *pData, size_t dataLen,
+		unsigned char **ppEncryptedData, size_t *pEncDataLen)
 {
 
-    int ret = WAE_ERROR_NONE;
-    unsigned char *pDek = NULL;
-    size_t dekLen = -1;
+	int ret = WAE_ERROR_NONE;
+	unsigned char *pDek = NULL;
+	size_t dekLen = -1;
 
-    if(pPkgId == NULL) {
-        WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(pData == NULL || dataLen <= 0) {
-        WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
-    if(ppEncryptedData == NULL || pEncDataLen == NULL) {
-        WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
-        ret = WAE_ERROR_INVALID_PARAMETER;
-        goto error;
-    }
+	if (pPkgId == NULL) {
+		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    ret = get_preloaded_app_dek(pPkgId, &pDek, &dekLen);
-    if(ret == WAE_ERROR_NO_KEY) {
-        ret = create_preloaded_app_dek(pPkgId, &pDek, &dekLen);
-    }
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (pData == NULL || dataLen <= 0) {
+		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
 
-    // encrypt
-    ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
-    if(ret != WAE_ERROR_NONE) {
-        goto error;
-    }
+	if (ppEncryptedData == NULL || pEncDataLen == NULL) {
+		WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
+		ret = WAE_ERROR_INVALID_PARAMETER;
+		goto error;
+	}
+
+	ret = get_preloaded_app_dek(pPkgId, &pDek, &dekLen);
+
+	if (ret == WAE_ERROR_NO_KEY) {
+		ret = create_preloaded_app_dek(pPkgId, &pDek, &dekLen);
+	}
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
+
+	// encrypt
+	ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
+
+	if (ret != WAE_ERROR_NONE) {
+		goto error;
+	}
+
 error:
-    if(pDek != NULL)
-        free(pDek);
+	if (pDek != NULL)
+		free(pDek);
 
-    return ret;
+	return ret;
 }
 
-int _wae_decrypt_preloaded_web_application(const char* pPkgId, wae_app_type_e appType,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppDecryptedData, size_t* pDecDataLen)
+int _wae_decrypt_preloaded_web_application(const char *pPkgId, wae_app_type_e appType,
+		const unsigned char *pData, size_t dataLen,
+		unsigned char **ppDecryptedData, size_t *pDecDataLen)
 {
-    // same with the decryption of downloaded web application
-    return _wae_decrypt_downloaded_web_application(pPkgId, appType,
-                                                   pData, dataLen, ppDecryptedData, pDecDataLen);
+	// same with the decryption of downloaded web application
+	return _wae_decrypt_downloaded_web_application(pPkgId, appType,
+			pData, dataLen, ppDecryptedData, pDecDataLen);
 }
 
-int wae_encrypt_web_application(const char* pPkgId, wae_app_type_e appType,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppEncryptedData, size_t* pEncDataLen)
+int wae_encrypt_web_application(const char *pPkgId, wae_app_type_e appType,
+								const unsigned char *pData, size_t dataLen,
+								unsigned char **ppEncryptedData, size_t *pEncDataLen)
 {
-    int ret = WAE_ERROR_NONE;
+	int ret = WAE_ERROR_NONE;
 
-    if(appType == WAE_PRELOADED_APP)
-        ret = _wae_encrypt_preloaded_web_application(pPkgId,
-                                                     pData, dataLen, ppEncryptedData, pEncDataLen);
-    else
-        ret = _wae_encrypt_downloaded_web_application(pPkgId, appType,
-                                                     pData, dataLen, ppEncryptedData, pEncDataLen);
+	if (appType == WAE_PRELOADED_APP)
+		ret = _wae_encrypt_preloaded_web_application(pPkgId,
+				pData, dataLen, ppEncryptedData, pEncDataLen);
+	else
+		ret = _wae_encrypt_downloaded_web_application(pPkgId, appType,
+				pData, dataLen, ppEncryptedData, pEncDataLen);
 
-    WAE_SLOGI("Encrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
-               pPkgId, appType, dataLen, ret);
-    return ret;
+	WAE_SLOGI("Encrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
+			  pPkgId, appType, dataLen, ret);
+	return ret;
 }
 
-int wae_decrypt_web_application(const char* pPkgId, wae_app_type_e appType,
-                                const unsigned char* pData, size_t dataLen,
-                                unsigned char** ppDecryptedData, size_t* pDecDataLen)
+int wae_decrypt_web_application(const char *pPkgId, wae_app_type_e appType,
+								const unsigned char *pData, size_t dataLen,
+								unsigned char **ppDecryptedData, size_t *pDecDataLen)
 {
-    int ret = WAE_ERROR_NONE;
+	int ret = WAE_ERROR_NONE;
 
-    if(appType == WAE_PRELOADED_APP)
-        ret = _wae_decrypt_preloaded_web_application(pPkgId, appType,
-                                                     pData, dataLen, ppDecryptedData, pDecDataLen);
-    else
-        ret = _wae_decrypt_downloaded_web_application(pPkgId, appType,
-                                                     pData, dataLen, ppDecryptedData, pDecDataLen);
+	if (appType == WAE_PRELOADED_APP)
+		ret = _wae_decrypt_preloaded_web_application(pPkgId, appType,
+				pData, dataLen, ppDecryptedData, pDecDataLen);
+	else
+		ret = _wae_decrypt_downloaded_web_application(pPkgId, appType,
+				pData, dataLen, ppDecryptedData, pDecDataLen);
 
-    WAE_SLOGI("Decrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
-               pPkgId, appType, dataLen, ret);
-    return ret;
+	WAE_SLOGI("Decrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
+			  pPkgId, appType, dataLen, ret);
+	return ret;
 }
 
 
-int wae_remove_app_dek(const char* pPkgId, wae_app_type_e appType)
+int wae_remove_app_dek(const char *pPkgId, wae_app_type_e appType)
 {
-    int ret = WAE_ERROR_NONE;
-    ret = remove_app_dek(pPkgId, appType);
-    WAE_SLOGI("Remove APP DEK. pkgId=%s, appType=%d, ret=%d", pPkgId, appType, ret);
-    return ret;
+	int ret = remove_app_dek(pPkgId, appType);
+	WAE_SLOGI("Remove APP DEK. pkgId=%s, appType=%d, ret=%d", pPkgId, appType, ret);
+	return ret;
 }

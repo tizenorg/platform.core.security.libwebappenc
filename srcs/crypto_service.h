@@ -19,8 +19,8 @@
  * @version     1.0
  * @brief       provides encryption and decription operations.
  */
-#ifndef __TIZEN_CORE_WAE_CRYPTO_SERVICE_H
-#define __TIZEN_CORE_WAE_CRYPTO_SERVICE_H
+#ifndef __WAE_CRYPTO_SERVICE_H
+#define __WAE_CRYPTO_SERVICE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,26 +28,26 @@ extern "C" {
 
 #include <stddef.h>
 
-int encrypt_app_dek(const unsigned char* rsaPublicKey, size_t pubKeyLen,
-                    const unsigned char* dek, size_t dekLen,
-                    unsigned char** encryptedDek, size_t* encryptedDekLen);
+int encrypt_app_dek(const unsigned char *rsaPublicKey, size_t pubKeyLen,
+					const unsigned char *dek, size_t dekLen,
+					unsigned char **encryptedDek, size_t *encryptedDekLen);
 
-int decrypt_app_dek(const unsigned char* rsaPrivateKey, size_t priKeyLen,
-                    const char* priKeyPassword,
-                    const unsigned char* encryptedDek, size_t dencryptedDekLen,
-                    unsigned char** decryptedDek, size_t* decryptedDekLen);
+int decrypt_app_dek(const unsigned char *rsaPrivateKey, size_t priKeyLen,
+					const char *priKeyPassword,
+					const unsigned char *encryptedDek, size_t dencryptedDekLen,
+					unsigned char **decryptedDek, size_t *decryptedDekLen);
 
 
-int encrypt_aes_cbc(const unsigned char* pKey, size_t keyLen,
-                    const unsigned char* pData, size_t dataLen,
-                    unsigned char** ppEncryptedData, size_t* pEncDataLen);
+int encrypt_aes_cbc(const unsigned char *pKey, size_t keyLen,
+					const unsigned char *pData, size_t dataLen,
+					unsigned char **ppEncryptedData, size_t *pEncDataLen);
 
-int decrypt_aes_cbc(const unsigned char* pKey, size_t keyLen,
-                    const unsigned char* pData, size_t dataLen,
-                    unsigned char** ppDecryptedData, size_t* pDecDataLen);
+int decrypt_aes_cbc(const unsigned char *pKey, size_t keyLen,
+					const unsigned char *pData, size_t dataLen,
+					unsigned char **ppDecryptedData, size_t *pDecDataLen);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __TIZEN_CORE_WAE_CRYPTO_SERVICE_H */
+#endif /* __WAE_CRYPTO_SERVICE_H */

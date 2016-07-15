@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,16 +17,14 @@
  * @file        wae_log.h
  * @author      Dongsun Lee (ds73.lee@samsung.com)
  * @version     1.0
- * @brief       a header for loggin.
+ * @brief       logging.
  */
-
 #ifndef __WAE_LOG_H__
 #define __WAE_LOG_H__
 
-/* Use DLOG logging mechanism */
 #include <dlog.h>
 
-#define TAG_WAE           "WAE"
+#define TAG_WAE "WAE"
 
 #define WAE_SLOGD(format, arg...) SLOG(LOG_DEBUG, TAG_WAE, format, ##arg)
 #define WAE_SLOGI(format, arg...) SLOG(LOG_INFO,  TAG_WAE, format, ##arg)
@@ -35,4 +33,3 @@
 #define WAE_SLOGF(format, arg...) SLOG(LOG_FATAL, TAG_WAE, format, ##arg)
 
 #endif /* __WAE_LOG_H__*/
-

@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -19,30 +19,30 @@
  * @version     1.0
  * @brief       tool for importing APP DEKs during booting
  */
-
 #include "key_handler.h"
 #include "web_app_enc.h"
 #include "wae_log.h"
 
 #include <stdio.h>
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-    int ret = WAE_ERROR_NONE;
-    bool reload = false;
+	int ret = WAE_ERROR_NONE;
+	bool reload = false;
 
-    if(argc == 2 && strcmp(argv[1], "--reload")==0) {
-        reload = true;
-    }
+	if (argc == 2 && strcmp(argv[1], "--reload") == 0) {
+		reload = true;
+	}
 
-    ret = load_preloaded_app_deks(reload);
-    if(ret == WAE_ERROR_NONE) {
-        printf("WAE INITIALIZER was finished successfully.\n");
-        WAE_SLOGI("WAE INITIALIZER was finished successfully.");
-        return 0;
-    }else {
-        printf("WAE INITIALIZER was finished with error. ret=%d\n", ret);
-        WAE_SLOGE("WAE INITIALIZER was finished with error. ret=%d", ret);
-        return -1;
-    }
+	ret = load_preloaded_app_deks(reload);
+
+	if (ret == WAE_ERROR_NONE) {
+		printf("WAE INITIALIZER was finished successfully.\n");
+		WAE_SLOGI("WAE INITIALIZER was finished successfully.");
+		return 0;
+	} else {
+		printf("WAE INITIALIZER was finished with error. ret=%d\n", ret);
+		WAE_SLOGE("WAE INITIALIZER was finished with error. ret=%d", ret);
+		return -1;
+	}
 }

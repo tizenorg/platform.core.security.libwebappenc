@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2014 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  *
  * @file    web_app_enc.h
  * @version 1.0
- * @brief   This file contains APIs of WEB_APP_ENC module.
+ * @brief   APIs of WEB_APP_ENC module.
 */
-
 #ifndef __WEB_APP_ENC__
 #define __WEB_APP_ENC__
 
@@ -25,39 +24,38 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
+
 /**
  * @addtogroup CAPI_WEB_APP_ENC_MODULE
  * @{
  */
 
-
 /**
  * @brief WAE Errors.
  * @since_tizen 3.0
  */
-typedef enum
-{
-    WAE_ERROR_NONE                     =   0x00, /**< Successful */
-    WAE_ERROR_INVALID_PARAMETER        = - 0x01, /**< Invalid function parameter */
-    WAE_ERROR_PERMISSION_DENIED        = - 0x02, /**< Permission denied */
-    WAE_ERROR_NO_KEY                   = - 0x03, /**< No key */
-    WAE_ERROR_KEY_EXISTS               = - 0x04, /**< key already exists*/
-    WAE_ERROR_KEY_MANAGER              = - 0x05, /**< key-manager internal error */
-    WAE_ERROR_CRYPTO                   = - 0x06, /**< failed in crypto operation */
-    WAE_ERROR_MEMORY                   = - 0x07, /**< failed to allocate memory */
-    WAE_ERROR_FILE                     = - 0x08, /**< failed to read or write a file*/
-    WAE_ERROR_UNKNOWN                  = - 0x09  /** < Unknown error */
+typedef enum {
+	WAE_ERROR_NONE                     = 0x00,  /**< Successful */
+	WAE_ERROR_INVALID_PARAMETER        = -0x01, /**< Invalid function parameter */
+	WAE_ERROR_PERMISSION_DENIED        = -0x02, /**< Permission denied */
+	WAE_ERROR_NO_KEY                   = -0x03, /**< No key */
+	WAE_ERROR_KEY_EXISTS               = -0x04, /**< key already exists*/
+	WAE_ERROR_KEY_MANAGER              = -0x05, /**< key-manager internal error */
+	WAE_ERROR_CRYPTO                   = -0x06, /**< failed in crypto operation */
+	WAE_ERROR_MEMORY                   = -0x07, /**< failed to allocate memory */
+	WAE_ERROR_FILE                     = -0x08, /**< failed to read or write a file*/
+	WAE_ERROR_UNKNOWN                  = -0x09  /** < Unknown error */
 } wae_error_e;
 
 /**
  * @brief Application Type.
  * @since_tizen 3.0
  */
-typedef enum
-{
-    WAE_DOWNLOADED_NORMAL_APP = 0, /**< Downloaded Normal Application*/
-    WAE_DOWNLOADED_GLOBAL_APP = 1, /**< Downloaded Global Application*/
-    WAE_PRELOADED_APP         = 2  /**< Preloaded Application*/
+typedef enum {
+	WAE_DOWNLOADED_NORMAL_APP = 0, /**< Downloaded Normal Application*/
+	WAE_DOWNLOADED_GLOBAL_APP = 1, /**< Downloaded Global Application*/
+	WAE_PRELOADED_APP         = 2  /**< Preloaded Application*/
 } wae_app_type_e;
 
 /**
@@ -81,7 +79,7 @@ typedef enum
  *
  * @see wae_decrypt_web_application()
  */
-int wae_encrypt_web_application(const char* pPkgId, wae_app_type_e appType, const unsigned char* pData, size_t dataLen, unsigned char** ppEncryptedData, size_t* pEncDataLen);
+int wae_encrypt_web_application(const char *pPkgId, wae_app_type_e appType, const unsigned char *pData, size_t dataLen, unsigned char **ppEncryptedData, size_t *pEncDataLen);
 
 /**
  * @brief Encrypts web application data with internal key.
@@ -104,7 +102,7 @@ int wae_encrypt_web_application(const char* pPkgId, wae_app_type_e appType, cons
  *
  * @see wae_encrypt_web_application()
  */
-int wae_decrypt_web_application(const char* pPkgId, wae_app_type_e appType, const unsigned char* pData, size_t dataLen, unsigned char** ppDecryptedData, size_t* pDecDataLen);
+int wae_decrypt_web_application(const char *pPkgId, wae_app_type_e appType, const unsigned char *pData, size_t dataLen, unsigned char **ppDecryptedData, size_t *pDecDataLen);
 
 /**
  * @brief Remove a APP DEK(Application Data Encryption Key) used for encrytpion and decryption of a web application.
@@ -121,8 +119,7 @@ int wae_decrypt_web_application(const char* pPkgId, wae_app_type_e appType, cons
  * @retval #WAE_ERROR_UNKNOWN             Failed with unknown reason
  *
  */
-int wae_remove_app_dek(const char* pPkgId, wae_app_type_e appType);
-
+int wae_remove_app_dek(const char *pPkgId, wae_app_type_e appType);
 
 /**
  * @}
@@ -133,4 +130,3 @@ int wae_remove_app_dek(const char* pPkgId, wae_app_type_e appType);
 #endif
 
 #endif /* __WEB_APP_ENC__ */
-
