@@ -19,7 +19,9 @@
  * @version     1.0
  * @brief       provides encryption and decription operations.
  */
+#include "crypto_service.h"
 
+#include <stdbool.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/crypto.h>
@@ -34,20 +36,17 @@
 
 #define AES_256_KEY_SIZE 32
 
-#define WAE_FALSE 0
-#define WAE_TRUE  1
-
 static unsigned char AES_CBC_IV[16] = { 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
                                         0x08, 0x39, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F};
 
-static int __initialized = WAE_FALSE;
+static bool __initialized = false;
 
 void _initialize()
 {
-    if(__initialized != WAE_TRUE) {
+    if(!__initialized) {
         ERR_load_crypto_strings();
         OpenSSL_add_all_algorithms();
-        __initialized = WAE_TRUE;
+        __initialized = true;
     }
 }
 

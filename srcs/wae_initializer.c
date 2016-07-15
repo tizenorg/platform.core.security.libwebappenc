@@ -23,15 +23,16 @@
 #include "key_handler.h"
 #include "web_app_enc.h"
 #include "wae_log.h"
+
 #include <stdio.h>
 
 int main(int argc, char* argv[])
 {
     int ret = WAE_ERROR_NONE;
-    int reload = WAE_FALSE;
+    bool reload = false;
 
     if(argc == 2 && strcmp(argv[1], "--reload")==0) {
-        reload = WAE_TRUE;
+        reload = true;
     }
 
     ret = load_preloaded_app_deks(reload);

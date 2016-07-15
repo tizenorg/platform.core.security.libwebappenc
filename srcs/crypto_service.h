@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,11 +17,8 @@
  * @file        crypto_service.h
  * @author      Dongsun Lee (ds73.lee@samsung.com)
  * @version     1.0
- * @brief       a header for key manupulatation.
+ * @brief       provides encryption and decription operations.
  */
-
-
-
 #ifndef __TIZEN_CORE_WAE_CRYPTO_SERVICE_H
 #define __TIZEN_CORE_WAE_CRYPTO_SERVICE_H
 
@@ -31,9 +28,8 @@ extern "C" {
 
 #include <stddef.h>
 
-
 int encrypt_app_dek(const unsigned char* rsaPublicKey, size_t pubKeyLen,
-                    const unsigned char* dek, const int dekLen,
+                    const unsigned char* dek, size_t dekLen,
                     unsigned char** encryptedDek, size_t* encryptedDekLen);
 
 int decrypt_app_dek(const unsigned char* rsaPrivateKey, size_t priKeyLen,
@@ -53,5 +49,5 @@ int decrypt_aes_cbc(const unsigned char* pKey, size_t keyLen,
 #ifdef __cplusplus
 }
 #endif
-#endif /* __TIZEN_CORE_WAE_CRYPTO_SERVICE_H */
 
+#endif /* __TIZEN_CORE_WAE_CRYPTO_SERVICE_H */

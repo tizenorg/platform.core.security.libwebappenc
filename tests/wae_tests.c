@@ -336,16 +336,16 @@ int wae_tc_get_alias()
     const char* pkgId = "TEST_PKG_ID";
     char alias[256] = {0, };
 
-    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, WAE_TRUE, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, true, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for normal for save. app=%s\n", pkgId, alias);
 
-    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, WAE_FALSE, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_DOWNLOADED_NORMAL_APP, false, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for normal for get. app=%s\n", pkgId, alias);
 
-    _get_alias(pkgId, WAE_DOWNLOADED_GLOBAL_APP, WAE_TRUE, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_DOWNLOADED_GLOBAL_APP, true, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for global app=%s\n", pkgId, alias);
 
-    _get_alias(pkgId, WAE_PRELOADED_APP, WAE_TRUE, alias, sizeof(alias));
+    _get_alias(pkgId, WAE_PRELOADED_APP, true, alias, sizeof(alias));
     FPRINTF("...pkgid=%s, alias for preloaded app=%s\n", pkgId, alias);
 
     return ret;
@@ -644,7 +644,7 @@ int wae_tc_load_preloaded_app_deks()
     }
 
     // load_preloaded_app_deks
-    ret = load_preloaded_app_deks(WAE_TRUE);
+    ret = load_preloaded_app_deks(true);
     if(ret != WAE_ERROR_NONE) {
         FPRINTF("...FAIL: load_preloaded_app_deks. ret=%d\n", ret);
         goto error;
@@ -752,7 +752,7 @@ int _wae_tc_encrypt_decrypt_web_app(wae_app_type_e appType)
     _remove_app_dek_from_cache(pkgId);
 
     if(appType == WAE_PRELOADED_APP) {
-        load_preloaded_app_deks(WAE_TRUE);
+        load_preloaded_app_deks(true);
     }
 
     ret = wae_decrypt_web_application(pkgId, appType, encrypted, encLen, &decrypted, &decLen);

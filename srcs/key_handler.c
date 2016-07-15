@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2000 - 2015 Samsung Electronics Co., Ltd All Rights Reserved
+ *  Copyright (c) 2016 Samsung Electronics Co., Ltd All Rights Reserved
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,25 +17,35 @@
  * @file        key_handler.c
  * @author      Dongsun Lee (ds73.lee@samsung.com)
  * @version     1.0
- * @brief       a header for key manupulatation.
+ * @brief       Key manupulatation.
  */
+#include "key_handler.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
-#include <ckmc/ckmc-manager.h>
-#include "wae_log.h"
-#include "web_app_enc.h"
-#include "key_handler.h"
-#include "crypto_service.h"
 
+#include <ckmc/ckmc-manager.h>
 #include <tzplatform_config.h>
 
-#define APP_DEK_KEK_PRIKEY_PASSWORD "wae_appdek_kek_1q2w3e4r"
+#include "wae_log.h"
+#include "web_app_enc.h"
+#include "crypto_service.h"
 
-#define WRT_INSTALLER_LABEL "/User"
+#define RANDOM_FILE                 "/dev/urandom"
+#define WRT_INSTALLER_LABEL         "/User"
+#define APP_DEK_KEK_PRIKEY_PASSWORD "wae_appdek_kek_1q2w3e4r"
+#define APP_DEK_ALIAS_PFX           "APP_DEK_"
+#define APP_DEK_LOADING_DONE_ALIAS  "APP_DEKS_LOADING_FINISHED"
+#define APP_DEK_FILE_PFX            "WAE_APP_DEK"
+#define APP_DEK_KEK_ALIAS           "WAE_APP_DEK_KEK"
+
+#define DEK_LEN        32
+#define MAX_ALIAS_LEN  256
+#define MAX_PKGID_LEN  256
+#define MAX_CACHE_SIZE 100
 
 typedef struct _dek_cache_element{
     char          pkgId[MAX_PKGID_LEN];
@@ -139,10 +149,10 @@ int _get_random(size_t length, unsigned char* random)
     return WAE_ERROR_NONE;
 }
 
-void _get_alias(const char* pPkgId, wae_app_type_e appType, int forSave, char* alias, size_t buff_len)
+void _get_alias(const char* pPkgId, wae_app_type_e appType, bool forSave, char* alias, size_t buff_len)
 {
     if(appType == WAE_DOWNLOADED_NORMAL_APP) {
-        if(forSave == WAE_TRUE) {
+        if(forSave) {
             snprintf(alias, buff_len, "%s%s",
                             APP_DEK_ALIAS_PFX,
                             pPkgId);
@@ -208,7 +218,7 @@ int _add_dek_to_key_manager(const char* pPkgId, wae_app_type_e appType, const un
     policy.extractable = true;
 
     // save app_dek in key_manager
-    _get_alias(pPkgId, appType, WAE_TRUE, alias, sizeof(alias));
+    _get_alias(pPkgId, appType, true, alias, sizeof(alias));
 
     // even if it fails to remove, ignore it.
     ret = _to_wae_error( ckmc_remove_alias(alias));
@@ -367,7 +377,7 @@ int get_app_dek(const char* pPkgId, wae_app_type_e appType, unsigned char** ppDe
     cached_dek = _get_app_dek_from_cache(pPkgId);
     if(cached_dek == NULL) {
         // get APP_DEK from system database
-        _get_alias(pPkgId, appType, WAE_FALSE, alias, sizeof(alias));
+        _get_alias(pPkgId, appType, false, alias, sizeof(alias));
 
         ret = _to_wae_error(ckmc_get_data(alias, password, &pDekBuffer));
         if(ret != WAE_ERROR_NONE) {
@@ -641,7 +651,7 @@ int _clear_app_deks_loaded()
     return ret;
 }
 
-int load_preloaded_app_deks(int reload)
+int load_preloaded_app_deks(bool reload)
 {
     int ret = WAE_ERROR_NONE;
 
@@ -661,7 +671,7 @@ int load_preloaded_app_deks(int reload)
 
     int error_during_loading = 0;
 
-    if(reload != WAE_TRUE) {
+    if(!reload) {
         // check if all deks were already loaded into key-manager.
         ret = _get_app_deks_loaded();
         if(ret == WAE_ERROR_NONE) {
@@ -765,7 +775,7 @@ int remove_app_dek(const char* pPkgId, wae_app_type_e appType)
     int ret = CKMC_ERROR_NONE;
     char alias[MAX_ALIAS_LEN] = {0,};
 
-    _get_alias(pPkgId, appType, WAE_TRUE, alias,sizeof(alias));
+    _get_alias(pPkgId, appType, true, alias,sizeof(alias));
 
     ret = _to_wae_error(ckmc_remove_alias(alias));
     if(ret != WAE_ERROR_NONE) {
