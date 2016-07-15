@@ -59,8 +59,8 @@ ADD_DEFINITIONS("-DBINDIR=\"${BINDIR}\"")
 ADD_DEFINITIONS("-DINSTALLER_LABEL=\"${INSTALLER_LABEL}\"")
 
 # IF (CMAKE_BUILD_TYPE MATCHES "DEBUG")
-    ADD_DEFINITIONS("-DTIZEN_DEBUG_ENABLE")
-    ADD_DEFINITIONS("-DBUILD_TYPE_DEBUG")
+	ADD_DEFINITIONS("-DTIZEN_DEBUG_ENABLE")
+	ADD_DEFINITIONS("-DBUILD_TYPE_DEBUG")
 # ENDIF (CMAKE_BUILD_TYPE MATCHES "DEBUG")
 
 CONFIGURE_FILE(packaging/lib${PROJECT_NAME}.manifest.in lib${PROJECT_NAME}.manifest @ONLY)
@@ -69,8 +69,8 @@ CONFIGURE_FILE(packaging/lib${PROJECT_NAME}-test.manifest.in lib${PROJECT_NAME}-
 ################# common configurations for srcs and test ######################
 SET(DEPENDENTS "openssl dlog key-manager libtzplatform-config")
 PKG_CHECK_MODULES(WEB_APP_ENC_DEPS
-    REQUIRED
-    ${DEPENDENTS}
+	REQUIRED
+	${DEPENDENTS}
 )
 
 
@@ -81,10 +81,11 @@ SET(PC_LDFLAGS -l${PROJECT_NAME})
 #SET(PC_CFLAGS -I\${includedir})
 
 ############################ Target Setting ################################
-SET(TARGET_WEBAPPENC ${PROJECT_NAME})
+SET(TARGET_WAE ${PROJECT_NAME})
 SET(TARGET_WAE_INITIALIZER wae_initializer)
 SET(TARGET_WAE_ENCRYPTER wae_encrypter)
-SET(TARGET_WEBAPPENC_TEST wae_tests)
+SET(TARGET_WAE_TEST wae_tests)
+SET(TARGET_WAE_TEST_COMMON wae_tests_common)
 
 ############################ Add Sub Directories  ################################
 ADD_SUBDIRECTORY(srcs)
