@@ -3,6 +3,6 @@
         <domain name="_" />
     </request>
     <assign>
-        <filesystem path="/var/libwebappenc/" label="System" />
+        <filesystem path="@BINDIR@/wae_tests" label="_" exec_label="@INSTALLER_LABEL@" />
     </assign>
 </manifest>

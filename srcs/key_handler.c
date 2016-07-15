@@ -35,7 +35,6 @@
 #include "crypto_service.h"
 
 #define RANDOM_FILE                 "/dev/urandom"
-#define WRT_INSTALLER_LABEL         "/User"
 #define APP_DEK_KEK_PRIKEY_PASSWORD "wae_appdek_kek_1q2w3e4r"
 #define APP_DEK_ALIAS_PFX           "APP_DEK_"
 #define APP_DEK_LOADING_DONE_ALIAS  "APP_DEKS_LOADING_FINISHED"
@@ -168,8 +167,8 @@ void _get_alias(const char *pPkgId, wae_app_type_e appType, bool forSave, char *
 					 APP_DEK_ALIAS_PFX,
 					 pPkgId);
 		} else {
-			snprintf(alias, buff_len, "%s%s%s%s",
-					 WRT_INSTALLER_LABEL,
+			snprintf(alias, buff_len, "%c%s%s%s%s",
+					'/', INSTALLER_LABEL,
 					 ckmc_owner_id_separator,
 					 APP_DEK_ALIAS_PFX,
 					 pPkgId);
@@ -400,13 +399,13 @@ int get_app_dek(const char *pPkgId, wae_app_type_e appType, unsigned char **ppDe
 		ret = _to_wae_error(ckmc_get_data(alias, password, &pDekBuffer));
 
 		if (ret != WAE_ERROR_NONE) {
-			WAE_SLOGI("WAE: Fail to get APP_DEK from key-manager. pkgId=%s, alias=%s, ret=%d",
+			WAE_SLOGE("WAE: Fail to get APP_DEK from key-manager. pkgId=%s, alias=%s, ret=%d",
 					  pPkgId, alias, ret);
 			goto error;
 		}
 	}
 
-	pDek = (unsigned char *) malloc(DEK_LEN);
+	pDek = (unsigned char *)malloc(DEK_LEN);
 
 	if (pDek == NULL) {
 		WAE_SLOGE("Fail to allocate a memory");

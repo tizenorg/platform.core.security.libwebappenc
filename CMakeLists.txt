@@ -55,11 +55,16 @@ STRING(REGEX MATCH "([^.]*)" API_VERSION "${VERSION}")
 ADD_DEFINITIONS("-DAPI_VERSION=\"$(API_VERSION)\"")
 ADD_DEFINITIONS("-DSMACK_ENABLED")
 ADD_DEFINITIONS("-DSQLCIPHER_HAS_CODEC")
+ADD_DEFINITIONS("-DBINDIR=\"${BINDIR}\"")
+ADD_DEFINITIONS("-DINSTALLER_LABEL=\"${INSTALLER_LABEL}\"")
 
 # IF (CMAKE_BUILD_TYPE MATCHES "DEBUG")
     ADD_DEFINITIONS("-DTIZEN_DEBUG_ENABLE")
     ADD_DEFINITIONS("-DBUILD_TYPE_DEBUG")
 # ENDIF (CMAKE_BUILD_TYPE MATCHES "DEBUG")
+
+CONFIGURE_FILE(packaging/lib${PROJECT_NAME}.manifest.in lib${PROJECT_NAME}.manifest @ONLY)
+CONFIGURE_FILE(packaging/lib${PROJECT_NAME}-test.manifest.in lib${PROJECT_NAME}-test.manifest @ONLY)
 
 ################# common configurations for srcs and test ######################
 SET(DEPENDENTS "openssl dlog key-manager libtzplatform-config")
@@ -70,11 +75,10 @@ PKG_CHECK_MODULES(WEB_APP_ENC_DEPS
 
 
 ############################ For PC file setting  ################################
-SET(PC_NAME ${PROJECT_NAME})
+SET(PC_NAME lib${PROJECT_NAME})
 SET(PC_REQUIRED ${DEPENDENTS})
 SET(PC_LDFLAGS -l${PROJECT_NAME})
 #SET(PC_CFLAGS -I\${includedir})
-
 
 ############################ Target Setting ################################
 SET(TARGET_WEBAPPENC ${PROJECT_NAME})

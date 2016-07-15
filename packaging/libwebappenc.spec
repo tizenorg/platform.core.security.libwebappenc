@@ -5,7 +5,6 @@ Release: 1
 Group:   Security/Libraries
 License: Apache-2.0
 Source0: %{name}-%{version}.tar.gz
-Source1001: %{name}.manifest
 
 Requires(post):   /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -35,9 +34,12 @@ Requires:   %{name} = %{version}-%{release}
 %description test
 Web application encryption and decryption service (test)
 
+%define installer_label "User"
+%define bin_dir         %TZ_SYS_BIN
+%define rw_share_dir    %TZ_SYS_SHARE
+
 %prep
 %setup -q
-cp %{SOURCE1001} .
 
 %build
 %{!?build_type:%define build_type "Release"}
@@ -45,10 +47,11 @@ cp %{SOURCE1001} .
          -DEXEC_PREFIX=%{_exec_prefix} \
          -DINCLUDEDIR=%{_includedir} \
          -DLIBDIR=%{_libdir} \
-         -DBINDIR=%TZ_SYS_BIN \
          -DSYSTEMD_UNIT_DIR=%{_unitdir} \
          -DCMAKE_BUILD_TYPE=%{build_type} \
-         -DTZ_SYS_SHARE=%TZ_SYS_SHARE
+         -DRW_SHARE_DIR=%rw_share_dir \
+         -DBINDIR=%bin_dir \
+         -DINSTALLER_LABEL=%installer_label
 
 make %{?jobs:-j%jobs}
 
@@ -82,9 +85,9 @@ fi
 %{_libdir}/%{name}.so.*
 %{_unitdir}/webappenc-initializer.service
 %{_unitdir}/multi-user.target.wants/webappenc-initializer.service
-%{TZ_SYS_BIN}/wae_initializer
-%{TZ_SYS_SHARE}/wae/app_dek/WAE_APPDEK_KEK_PrivateKey.pem
-%{TZ_SYS_SHARE}/wae/app_dek/WAE_APPDEK_KEK_PublicKey.pem
+%{bin_dir}/wae_initializer
+%{rw_share_dir}/wae/app_dek/WAE_APPDEK_KEK_PrivateKey.pem
+%{rw_share_dir}/wae/app_dek/WAE_APPDEK_KEK_PublicKey.pem
 
 %files devel
 %{_includedir}/*
@@ -92,4 +95,5 @@ fi
 %{_libdir}/%{name}.so
 
 %files test
-%{TZ_SYS_BIN}/wae_tests
+%manifest %{name}-test.manifest
+%{bin_dir}/wae_tests
