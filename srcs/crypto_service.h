@@ -28,23 +28,23 @@ extern "C" {
 
 #include <stddef.h>
 
-int encrypt_app_dek(const unsigned char *rsaPublicKey, size_t pubKeyLen,
-					const unsigned char *dek, size_t dekLen,
+int encrypt_app_dek(const unsigned char *pubkey, size_t pubkey_len,
+					const unsigned char *dek, size_t dek_len,
 					unsigned char **encryptedDek, size_t *encryptedDekLen);
 
-int decrypt_app_dek(const unsigned char *rsaPrivateKey, size_t priKeyLen,
-					const char *priKeyPassword,
-					const unsigned char *encryptedDek, size_t dencryptedDekLen,
-					unsigned char **decryptedDek, size_t *decryptedDekLen);
+int decrypt_app_dek(const unsigned char *prikey, size_t prikey_len,
+					const char *prikey_pass,
+					const unsigned char *encrypted_dek, size_t encrypted_dek_len,
+					unsigned char **pdecrypted_dek, size_t *pdecrypted_dek_len);
 
 
-int encrypt_aes_cbc(const unsigned char *pKey, size_t keyLen,
-					const unsigned char *pData, size_t dataLen,
-					unsigned char **ppEncryptedData, size_t *pEncDataLen);
+int encrypt_aes_cbc(const unsigned char *key, size_t key_len,
+					const unsigned char *data, size_t data_len,
+					unsigned char **pencrypted_data, size_t *pencrypted_data_len);
 
-int decrypt_aes_cbc(const unsigned char *pKey, size_t keyLen,
-					const unsigned char *pData, size_t dataLen,
-					unsigned char **ppDecryptedData, size_t *pDecDataLen);
+int decrypt_aes_cbc(const unsigned char *key, size_t key_len,
+					const unsigned char *data, size_t data_len,
+					unsigned char **pdecrypted_data, size_t *pdecrypted_data_len);
 
 #ifdef __cplusplus
 }

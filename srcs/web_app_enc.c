@@ -22,210 +22,129 @@
 #include "web_app_enc.h"
 
 #include <stdlib.h>
-#include <stdio.h>
 
+#include "ss_key_generator.h"
 #include "key_handler.h"
 #include "crypto_service.h"
 #include "wae_log.h"
 
-int _wae_encrypt_downloaded_web_application(const char *pPkgId, wae_app_type_e appType,
-		const unsigned char *pData, size_t dataLen,
-		unsigned char **ppEncryptedData, size_t *pEncDataLen)
+int _wae_encrypt_downloaded_web_application(
+		const char *pkg_id, wae_app_type_e app_type,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pencrypted_data, size_t *pencrypted_data_len)
 {
-	int ret = WAE_ERROR_NONE;
-	unsigned char *pDek = NULL;
-	size_t dekLen = -1;
-
-	if (pPkgId == NULL) {
-		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	if (pData == NULL || dataLen <= 0) {
-		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	if (ppEncryptedData == NULL || pEncDataLen == NULL) {
-		WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
+	if (pkg_id == NULL || data == NULL || data_len == 0 || pencrypted_data == NULL ||
+			pencrypted_data_len == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
 
 	// get APP_DEK.
 	//   if not exists, create APP_DEK
-	ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
+	unsigned char *dek = NULL;
+	size_t dek_len = -1;
+	int ret = get_app_dek(pkg_id, app_type, &dek, &dek_len);
 
-	if (ret == WAE_ERROR_NO_KEY) {
-		ret = create_app_dek(pPkgId, appType, &pDek, &dekLen);
-	}
+	if (ret == WAE_ERROR_NO_KEY)
+		ret = create_app_dek(pkg_id, app_type, &dek, &dek_len);
 
-	if (ret != WAE_ERROR_NONE) {
+	if (ret != WAE_ERROR_NONE)
 		goto error;
-	}
 
 	// encrypt
-	ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
-
-	if (ret != WAE_ERROR_NONE) {
-		goto error;
-	}
+	ret = encrypt_aes_cbc(dek, dek_len, data, data_len, pencrypted_data, pencrypted_data_len);
 
 error:
-	if (pDek != NULL)
-		free(pDek);
+	free(dek);
 
 	return ret;
 }
 
-int _wae_decrypt_downloaded_web_application(const char *pPkgId, wae_app_type_e appType,
-		const unsigned char *pData, size_t dataLen,
-		unsigned char **ppDecryptedData, size_t *pDecDataLen)
+int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e app_type,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
-	int ret = WAE_ERROR_NONE;
-	unsigned char *pDek = NULL;
-	size_t dekLen = -1;
 
-	if (pPkgId == NULL) {
-		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
+	if (pkg_id == NULL || data == NULL || data_len == 0 || pdecrypted_data == NULL ||
+			pdecrypted_data_len == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	unsigned char *dek = NULL;
+	size_t dek_len = -1;
+	int ret = get_app_dek(pkg_id, app_type, &dek, &dek_len);
+
+	if (ret != WAE_ERROR_NONE)
 		goto error;
-	}
-
-	if (pData == NULL || dataLen <= 0) {
-		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	if (ppDecryptedData == NULL || pDecDataLen == NULL) {
-		WAE_SLOGE("Invalid Parameter. ppDecryptedData or pDecDataLen is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	ret = get_app_dek(pPkgId, appType, &pDek, &dekLen);
-
-	if (ret != WAE_ERROR_NONE) {
-		goto error;
-	}
 
 	// decrypt
-	ret = decrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppDecryptedData, pDecDataLen);
-
-	if (ret != WAE_ERROR_NONE) {
-		goto error;
-	}
+	ret = decrypt_aes_cbc(dek, dek_len, data, data_len, pdecrypted_data, pdecrypted_data_len);
 
 error:
-	if (pDek != NULL)
-		free(pDek);
+	free(dek);
 
 	return ret;
 }
 
-int _wae_encrypt_preloaded_web_application(const char *pPkgId,
-		const unsigned char *pData, size_t dataLen,
-		unsigned char **ppEncryptedData, size_t *pEncDataLen)
+int _wae_encrypt_preloaded_web_application(const char *pkg_id,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pencrypted_data, size_t *pencrypted_data_len)
 {
+	if (pkg_id == NULL || data == NULL || data_len == 0 || pencrypted_data == NULL ||
+			pencrypted_data_len == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
 
-	int ret = WAE_ERROR_NONE;
-	unsigned char *pDek = NULL;
-	size_t dekLen = -1;
+	unsigned char *dek = NULL;
+	size_t dek_len = -1;
+	int ret = get_preloaded_app_dek(pkg_id, &dek, &dek_len);
 
-	if (pPkgId == NULL) {
-		WAE_SLOGE("Invalid Parameter. pPkgId is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
+	if (ret == WAE_ERROR_NO_KEY)
+		ret = create_preloaded_app_dek(pkg_id, &dek, &dek_len);
+
+	if (ret != WAE_ERROR_NONE)
 		goto error;
-	}
-
-	if (pData == NULL || dataLen <= 0) {
-		WAE_SLOGE("Invalid Parameter. pData is NULL or invalid dataLen(%d)", dataLen);
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	if (ppEncryptedData == NULL || pEncDataLen == NULL) {
-		WAE_SLOGE("Invalid Parameter. ppEncryptedData or pEncDataLen is NULL");
-		ret = WAE_ERROR_INVALID_PARAMETER;
-		goto error;
-	}
-
-	ret = get_preloaded_app_dek(pPkgId, &pDek, &dekLen);
-
-	if (ret == WAE_ERROR_NO_KEY) {
-		ret = create_preloaded_app_dek(pPkgId, &pDek, &dekLen);
-	}
-
-	if (ret != WAE_ERROR_NONE) {
-		goto error;
-	}
 
 	// encrypt
-	ret = encrypt_aes_cbc(pDek, dekLen, pData, dataLen, ppEncryptedData, pEncDataLen);
-
-	if (ret != WAE_ERROR_NONE) {
-		goto error;
-	}
+	ret = encrypt_aes_cbc(dek, dek_len, data, data_len, pencrypted_data, pencrypted_data_len);
 
 error:
-	if (pDek != NULL)
-		free(pDek);
+	free(dek);
 
 	return ret;
 }
 
-int _wae_decrypt_preloaded_web_application(const char *pPkgId, wae_app_type_e appType,
-		const unsigned char *pData, size_t dataLen,
-		unsigned char **ppDecryptedData, size_t *pDecDataLen)
+int _wae_decrypt_preloaded_web_application(const char *pkg_id, wae_app_type_e app_type,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
 	// same with the decryption of downloaded web application
-	return _wae_decrypt_downloaded_web_application(pPkgId, appType,
-			pData, dataLen, ppDecryptedData, pDecDataLen);
+	return _wae_decrypt_downloaded_web_application(pkg_id, app_type,
+			data, data_len, pdecrypted_data, pdecrypted_data_len);
 }
 
-int wae_encrypt_web_application(const char *pPkgId, wae_app_type_e appType,
-								const unsigned char *pData, size_t dataLen,
-								unsigned char **ppEncryptedData, size_t *pEncDataLen)
+int wae_encrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
+								const unsigned char *data, size_t data_len,
+								unsigned char **pencrypted_data, size_t *pencrypted_data_len)
 {
-	int ret = WAE_ERROR_NONE;
-
-	if (appType == WAE_PRELOADED_APP)
-		ret = _wae_encrypt_preloaded_web_application(pPkgId,
-				pData, dataLen, ppEncryptedData, pEncDataLen);
+	if (app_type == WAE_PRELOADED_APP)
+		return _wae_encrypt_preloaded_web_application(pkg_id,
+				data, data_len, pencrypted_data, pencrypted_data_len);
 	else
-		ret = _wae_encrypt_downloaded_web_application(pPkgId, appType,
-				pData, dataLen, ppEncryptedData, pEncDataLen);
-
-	WAE_SLOGI("Encrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
-			  pPkgId, appType, dataLen, ret);
-	return ret;
+		return _wae_encrypt_downloaded_web_application(pkg_id, app_type,
+				data, data_len, pencrypted_data, pencrypted_data_len);
 }
 
-int wae_decrypt_web_application(const char *pPkgId, wae_app_type_e appType,
-								const unsigned char *pData, size_t dataLen,
-								unsigned char **ppDecryptedData, size_t *pDecDataLen)
+int wae_decrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
+								const unsigned char *data, size_t data_len,
+								unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
-	int ret = WAE_ERROR_NONE;
-
-	if (appType == WAE_PRELOADED_APP)
-		ret = _wae_decrypt_preloaded_web_application(pPkgId, appType,
-				pData, dataLen, ppDecryptedData, pDecDataLen);
+	if (app_type == WAE_PRELOADED_APP)
+		return _wae_decrypt_preloaded_web_application(pkg_id, app_type,
+				data, data_len, pdecrypted_data, pdecrypted_data_len);
 	else
-		ret = _wae_decrypt_downloaded_web_application(pPkgId, appType,
-				pData, dataLen, ppDecryptedData, pDecDataLen);
-
-	WAE_SLOGI("Decrypt Web App. pkgId=%s, appType=%d, dataLen=%d, ret=%d",
-			  pPkgId, appType, dataLen, ret);
-	return ret;
+		return _wae_decrypt_downloaded_web_application(pkg_id, app_type,
+				data, data_len, pdecrypted_data, pdecrypted_data_len);
 }
 
 
-int wae_remove_app_dek(const char *pPkgId, wae_app_type_e appType)
+int wae_remove_app_dek(const char *pkg_id, wae_app_type_e app_type)
 {
-	int ret = remove_app_dek(pPkgId, appType);
-	WAE_SLOGI("Remove APP DEK. pkgId=%s, appType=%d, ret=%d", pPkgId, appType, ret);
-	return ret;
+	return remove_app_dek(pkg_id, app_type);
 }
