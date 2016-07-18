@@ -34,34 +34,34 @@ extern "C" {
 
 /* functions with "_" prefix are internal static functions but declared here for testing */
 void _initialize_cache();
-unsigned char *_get_app_dek_from_cache(const char *pkgId);
-void _add_app_dek_to_cache(const char *pkgId, unsigned char *dek);
-void _remove_app_dek_from_cache(const char *pkgId);
+const unsigned char *_get_app_dek_from_cache(const char *pkg_id);
+void _add_app_dek_to_cache(const char *pkg_id, const unsigned char *dek);
+void _remove_app_dek_from_cache(const char *pkg_id);
 int _get_random(size_t length, unsigned char *random);
-void _get_alias(const char *pPkgId, wae_app_type_e appType, bool forSave, char *alias, size_t buff_len);
+void _get_alias(const char *pkg_id, wae_app_type_e app_type, bool forSave, char *alias, size_t buff_len);
 void _get_dek_kek_alias(char *alias, size_t buff_len);
 void _get_dek_loading_done_alias(char *alias, size_t buff_len);
 const char *_get_dek_kek_pub_key_path();
 const char *_get_dek_kek_pri_key_path();
 const char *_get_dek_store_path();
-int _add_dek_to_key_manager(const char *pPkgId, wae_app_type_e appType, const unsigned char *pDek, size_t len);
-int _get_preloaded_app_dek_file_path(const char *pPkgId, size_t size, char *path);
-int _extract_pkg_id_from_file_name(const char *fileName, char *pkgId);
-int _read_encrypted_app_dek_from_file(const char *pPkgId, unsigned char **encrypted_app_dek, size_t *len);
-int _write_encrypted_app_dek_to_file(const char *pPkgId, const unsigned char *encrypted_app_dek, size_t len);
-int _read_from_file(const char *path, unsigned char **data, size_t *len);
-int _write_to_file(const char *path, const unsigned char *data, size_t len);
+int _add_dek_to_key_manager(const char *pkg_id, wae_app_type_e app_type, const unsigned char *dek, size_t dek_len);
+int _get_preloaded_app_dek_file_path(const char *pkg_id, size_t size, char *path);
+int _extract_pkg_id_from_file_name(const char *file_name, char *pkg_id);
+int _read_encrypted_app_dek_from_file(const char *pkg_id, unsigned char **pencrypted_app_dek, size_t *pencrypted_app_dek_len);
+int _write_encrypted_app_dek_to_file(const char *pkg_id, const unsigned char *encrypted_app_dek, size_t encrypted_app_dek_len);
+int _read_from_file(const char *path, unsigned char **pdata, size_t *pdata_len);
+int _write_to_file(const char *path, const unsigned char *data, size_t data_len);
 int _get_app_deks_loaded();
 int _set_app_deks_loaded();
 int _clear_app_deks_loaded();
 
 /* functions for interface */
-int get_app_dek(const char *pPkgId, wae_app_type_e appType, unsigned char **ppDek, size_t *dekLen);
-int create_app_dek(const char *pPkgId, wae_app_type_e appType, unsigned char **ppDek, size_t *dekLen);
-int get_preloaded_app_dek(const char *pPkgId, unsigned char **ppDek, size_t *dekLen);
-int create_preloaded_app_dek(const char *pPkgId, unsigned char **ppDek, size_t *dekLen);
+int get_app_dek(const char *pkg_id, wae_app_type_e app_type, unsigned char **pdek, size_t *pdek_len);
+int create_app_dek(const char *pkg_id, wae_app_type_e app_type, unsigned char **pdek, size_t *pdek_len);
+int get_preloaded_app_dek(const char *pkg_id, unsigned char **pdek, size_t *pdek_len);
+int create_preloaded_app_dek(const char *pkg_id, unsigned char **pdek, size_t *pdek_len);
 int load_preloaded_app_deks(bool reload);
-int remove_app_dek(const char *pPkgId, wae_app_type_e appType);
+int remove_app_dek(const char *pkg_id, wae_app_type_e app_type);
 
 #ifdef __cplusplus
 }

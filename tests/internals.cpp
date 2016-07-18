@@ -160,7 +160,7 @@ BOOST_AUTO_TEST_CASE(cache)
 	_add_app_dek_to_cache(pkg3, dek3.data());
 
 	size_t dek_len = 32;
-	unsigned char *_cached = _get_app_dek_from_cache(pkg1);
+	const unsigned char *_cached = _get_app_dek_from_cache(pkg1);
 	auto cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
 
 	BOOST_REQUIRE_MESSAGE(cached == dek1,
