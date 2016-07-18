@@ -71,8 +71,20 @@ int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e a
 	size_t dek_len = -1;
 	int ret = get_app_dek(pkg_id, app_type, &dek, &dek_len);
 
-	if (ret != WAE_ERROR_NONE)
+	if (appType != WAE_PRELOADED_APP && ret == WAE_ERROR_NO_KEY) {
+		WAE_SLOGI("app dek for decrypt downloaded app(%s) doesn't exist. This case would be "
+				  "needed secure-storage data migration.", pPkgId);
+
+		ret = get_old_duk(pkg_id, &dek, &dek_len);
+		if (ret != WAE_ERROR_NONE)
+			goto error;
+
+		ret = _add_dek_to_key_manager(pkg_id, app_type, dek, dek_len);
+		if (ret != WAE_ERROR_NONE)
+			goto error;
+	} else if (ret != WAE_ERROR_NONE) {
 		goto error;
+	}
 
 	// decrypt
 	ret = decrypt_aes_cbc(dek, dek_len, data, data_len, pdecrypted_data, pdecrypted_data_len);
