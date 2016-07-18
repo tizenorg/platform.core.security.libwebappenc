@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 
+#include "decrypt_migrated_wgt.h"
 #include "key_handler.h"
 #include "crypto_service.h"
 #include "wae_log.h"
@@ -70,8 +71,18 @@ int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e a
 	size_t dek_len = -1;
 	int ret = get_app_dek(pkg_id, app_type, &dek, &dek_len);
 
-	if (ret != WAE_ERROR_NONE)
+	if (app_type == WAE_DOWNLOADED_GLOBAL_APP && ret == WAE_ERROR_NO_KEY) {
+		WAE_SLOGI("app dek for decrypt downloaded app(%s) doesn't exist. This case would be "
+				  "needed secure-storage data migration.", pkg_id);
+
+		ret = decrypt_by_old_ss_algo(pkg_id, data, data_len, pdecrypted_data, pdecrypted_data_len);
+		if (ret != WAE_ERROR_NONE)
+			goto error;
+		else
+			return WAE_ERROR_NONE;
+	} else if (ret != WAE_ERROR_NONE) {
 		goto error;
+	}
 
 	// decrypt
 	ret = decrypt_aes_cbc(dek, dek_len, data, data_len, pdecrypted_data, pdecrypted_data_len);
