@@ -62,12 +62,12 @@ typedef enum {
  * @brief Encrypts web application data with internal key(APP DEK: Application Data Encryption Key).
  *
  * @since_tizen 3.0
- * @param[in] pPkgId   The package id of an application.
- * @param[in] appType  The application type.
- * @param[in] pData    The data block to be encrypted.
- * @param[in] dataLen  The length of the data block.
- * @param[out] ppEncryptedData The data block contaning encrypted data block. Memory allocated for ppEncryptedData. Has to be freed by free() function.
- * @param[out] pEncDataLen The length of the encrypted data block.
+ * @param[in] pkg_id               The package id of an application
+ * @param[in] app_type             The application type
+ * @param[in] data                 The data block to be encrypted
+ * @param[in] data_len             The length of @a data
+ * @param[out] pencrypted_data     The data block contaning encrypted data block which must be freed by free()
+ * @param[out] pencrypted_data_len The length of data pointed by @a pencrypted_data
  *
  * @return #WAE_ERROR_NONE on success, otherwise a negative error value
  * @retval #WAE_ERROR_INVALID_PARAMETER   Invalid input parameter
@@ -79,18 +79,20 @@ typedef enum {
  *
  * @see wae_decrypt_web_application()
  */
-int wae_encrypt_web_application(const char *pPkgId, wae_app_type_e appType, const unsigned char *pData, size_t dataLen, unsigned char **ppEncryptedData, size_t *pEncDataLen);
+int wae_encrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
+								const unsigned char *data, size_t data_len,
+								unsigned char **pencrypted_data, size_t *pencrypted_data_len);
 
 /**
  * @brief Encrypts web application data with internal key.
  *
  * @since_tizen 3.0
- * @param[in] pPkgId   The package id of an application.
- * @param[in] appType  The application type.
- * @param[in] pData    The data block to be decrypted.
- * @param[in] dataLen  The length of the data block.
- * @param[out] ppDecryptedData Data block contaning decrypted data block. Memory allocated for ppEncryptedData. Has to be freed by free() function.
- * @param[out] pDecDataLen The length of the decrypted data block.
+ * @param[in] pkg_id               The package id of an application
+ * @param[in] app_type             The application type
+ * @param[in] data                 The data block to be decrypted
+ * @param[in] data_len             The length of @a data
+ * @param[out] pdecrypted_data     Data block contaning decrypted data block which must be freed by free()
+ * @param[out] pdecrypted_data_len The length of data pointed by @a pdecrypted_data
  *
  * @return #WAE_ERROR_NONE on success, otherwise a negative error value
  * @retval #WAE_ERROR_INVALID_PARAMETER   Invalid input parameter
@@ -102,14 +104,16 @@ int wae_encrypt_web_application(const char *pPkgId, wae_app_type_e appType, cons
  *
  * @see wae_encrypt_web_application()
  */
-int wae_decrypt_web_application(const char *pPkgId, wae_app_type_e appType, const unsigned char *pData, size_t dataLen, unsigned char **ppDecryptedData, size_t *pDecDataLen);
+int wae_decrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
+								const unsigned char *data, size_t data_len,
+								unsigned char **pdecrypted_data, size_t *pdecrypted_data_len);
 
 /**
  * @brief Remove a APP DEK(Application Data Encryption Key) used for encrytpion and decryption of a web application.
  *
  * @since_tizen 3.0
- * @param[in] pPkgId   The package id of an application.
- * @param[in] appType  The application type.
+ * @param[in] pkg_id    The package id of an application
+ * @param[in] app_type  The application type
  *
  * @return #WAE_ERROR_NONE on success, otherwise a negative error value
  * @retval #WAE_ERROR_INVALID_PARAMETER   Invalid input parameter
@@ -119,7 +123,7 @@ int wae_decrypt_web_application(const char *pPkgId, wae_app_type_e appType, cons
  * @retval #WAE_ERROR_UNKNOWN             Failed with unknown reason
  *
  */
-int wae_remove_app_dek(const char *pPkgId, wae_app_type_e appType);
+int wae_remove_app_dek(const char *pkg_id, wae_app_type_e app_type);
 
 /**
  * @}
