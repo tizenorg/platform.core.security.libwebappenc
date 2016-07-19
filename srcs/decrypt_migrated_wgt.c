@@ -28,11 +28,22 @@
 #include <openssl/sha.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 
 #include "wae_log.h"
 #include "web_app_enc.h"
 
 #define DUK_LEN 16
+
+static void _logging_openssl_err()
+{
+	unsigned long e = ERR_get_error();
+	char buf[512] = {0, };
+
+	ERR_error_string_n(e, buf, 511);
+
+	WAE_SLOGE("Openssl err: %s", buf);
+}
 
 static int _get_old_duk(const char *pkg_id, unsigned char **pduk, size_t *pduk_len)
 {
@@ -46,7 +57,12 @@ static int _get_old_duk(const char *pkg_id, unsigned char **pduk, size_t *pduk_l
 		return WAE_ERROR_MEMORY;
 	}
 
-	PKCS5_PBKDF2_HMAC_SHA1(pkg_id, strlen(pkg_id), salt, sizeof(salt), 1, (DUK_LEN * 2), duk);
+	if (PKCS5_PBKDF2_HMAC_SHA1(pkg_id, strlen(pkg_id), salt, sizeof(salt), 1,
+							   (DUK_LEN * 2), duk) != 1) {
+		free(duk);
+		return WAE_ERROR_CRYPTO;
+	}
+
 	duk[DUK_LEN * 2] = '\0';
 
 	*pduk = duk;
@@ -59,19 +75,15 @@ static int _get_old_duk(const char *pkg_id, unsigned char **pduk, size_t *pduk_l
 
 static int _get_old_iv(const unsigned char *src, size_t src_len, unsigned char **piv, size_t *piv_len)
 {
-	unsigned char iv_buf[SHA_DIGEST_LENGTH] = {0, };
-	unsigned int iv_len = 0;
-
-	if (EVP_Digest(src, src_len, iv_buf, &iv_len, EVP_sha1(), NULL) != 1) {
-		WAE_SLOGE("Failed to EVP_Digest for getting old iv");
-		return WAE_ERROR_CRYPTO;
-	}
-
-	unsigned char *iv = (unsigned char *)malloc(sizeof(unsigned char) * sizeof(iv_buf));
+	unsigned int iv_len = SHA_DIGEST_LENGTH;
+	unsigned char *iv = (unsigned char *)malloc(sizeof(unsigned char) * iv_len);
 	if (iv == NULL)
 		return WAE_ERROR_MEMORY;
 
-	memcpy(iv, iv_buf, sizeof(iv_buf));
+	if (EVP_Digest(src, src_len, iv, &iv_len, EVP_sha1(), NULL) != 1) {
+		free(iv);
+		return WAE_ERROR_CRYPTO;
+	}
 
 	*piv = iv;
 	*piv_len = iv_len;
@@ -111,44 +123,40 @@ static int _decrypt(const unsigned char *key, size_t key_len,
 
 	EVP_CIPHER_CTX_init(&ctx);
 
-	int ret = EVP_CipherInit(&ctx, algo, key, iv, 0);
+	int ret = WAE_ERROR_NONE;
 
-	if (ret != 1) {
+	if (EVP_CipherInit(&ctx, algo, key, iv, 0) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	ret = EVP_CIPHER_CTX_set_padding(&ctx, 1);
-
-	if (ret != 1) {
+	if (EVP_CIPHER_CTX_set_padding(&ctx, 1) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	ret = EVP_CipherUpdate(&ctx, decrypted, &decrypted_len, data, data_len);
-
-	if (ret != 1) {
+	if (EVP_CipherUpdate(&ctx, decrypted, &decrypted_len, data, data_len) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	} else if (decrypted_len <= 0) {
-		ret = WAE_ERROR_CRYPTO;
+		WAE_SLOGE("EVP_CipherUpdate success but returned decrypted_len(%d) <= 0",
+				  decrypted_len);
+		ret = WAE_ERROR_UNKNOWN;
 		goto error;
 	}
 
-	ret = EVP_CipherFinal(&ctx, decrypted + decrypted_len, &final_len);
-
-	if (ret != 1) {
+	if (EVP_CipherFinal(&ctx, decrypted + decrypted_len, &final_len) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	} else if (final_len <= 0) {
-		ret = WAE_ERROR_CRYPTO;
+		WAE_SLOGE("EVP_CipherFinal success but returned final_len(%d) <= 0",
+				  final_len);
+		ret = WAE_ERROR_UNKNOWN;
 		goto error;
 	}
 
 	*pdecrypted = decrypted;
 	*pdecrypted_len = decrypted_len + final_len;
-
-	ret = WAE_ERROR_NONE;
 
 error:
 	EVP_CIPHER_CTX_cleanup(&ctx);
@@ -161,13 +169,14 @@ int decrypt_by_old_ss_algo(const char *pkg_id, const unsigned char *encrypted, s
 {
 	unsigned char *duk = NULL;
 	size_t duk_len = 0;
+	unsigned char *iv = NULL;
+	size_t iv_len = 0;
+
 	int ret = _get_old_duk(pkg_id, &duk, &duk_len);
 
 	if (ret != WAE_ERROR_NONE)
-		return ret;
+		goto error;
 
-	unsigned char *iv = NULL;
-	size_t iv_len = 0;
 	ret = _get_old_iv(duk, duk_len, &iv, &iv_len);
 
 	if (ret != WAE_ERROR_NONE)
@@ -178,6 +187,9 @@ int decrypt_by_old_ss_algo(const char *pkg_id, const unsigned char *encrypted, s
 	WAE_SLOGI("decrypt with old ss algo success of pkg: %s", pkg_id);
 
 error:
+	if (ret == WAE_ERROR_CRYPTO)
+		_logging_openssl_err();
+
 	free(duk);
 	free(iv);
 
