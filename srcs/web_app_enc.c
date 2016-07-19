@@ -76,10 +76,7 @@ int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e a
 				  "needed secure-storage data migration.", pkg_id);
 
 		ret = decrypt_by_old_ss_algo(pkg_id, data, data_len, pdecrypted_data, pdecrypted_data_len);
-		if (ret != WAE_ERROR_NONE)
-			goto error;
-		else
-			return WAE_ERROR_NONE;
+		goto error; // always go to error to skip decyprt_aes_cbc
 	} else if (ret != WAE_ERROR_NONE) {
 		goto error;
 	}
