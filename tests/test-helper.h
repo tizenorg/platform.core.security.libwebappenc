@@ -25,8 +25,8 @@
 namespace Wae {
 namespace Test {
 
-void add_get_remove_dek(wae_app_type_e app_type);
-void create_app_dek(wae_app_type_e app_type);
+void add_get_remove_ce(wae_app_type_e app_type);
+void create_app_ce(wae_app_type_e app_type);
 void encrypt_decrypt_web_app(wae_app_type_e app_type);
 
 } // namespace Test

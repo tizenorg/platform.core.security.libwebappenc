@@ -33,7 +33,7 @@
 #include "wae_log.h"
 #include "web_app_enc.h"
 
-#define DUK_LEN 16
+#define DUK_SIZE 16
 
 static void _logging_openssl_err()
 {
@@ -45,64 +45,62 @@ static void _logging_openssl_err()
 	WAE_SLOGE("Openssl err: %s", buf);
 }
 
-static int _get_old_duk(const char *pkg_id, unsigned char **pduk, size_t *pduk_len)
+static int _get_old_duk(const char *pkg_id, raw_buffer_s **pduk)
 {
+	if (pkg_id == NULL || pduk == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
 	unsigned char salt[32];
 
 	memset(salt, 0xFF, sizeof(salt));
 
-	unsigned char *duk = (unsigned char *)malloc(sizeof(unsigned char) * ((DUK_LEN * 2) + 1));
-	if (duk == NULL) {
-		WAE_SLOGE("Failed to allocate memory for old duk.");
+	raw_buffer_s *duk = buffer_create(DUK_SIZE * 2);
+	if (duk == NULL)
 		return WAE_ERROR_MEMORY;
-	}
 
 	if (PKCS5_PBKDF2_HMAC_SHA1(pkg_id, strlen(pkg_id), salt, sizeof(salt), 1,
-							   (DUK_LEN * 2), duk) != 1) {
-		free(duk);
+							   duk->size, duk->buf) != 1) {
+		buffer_destroy(duk);
 		return WAE_ERROR_CRYPTO;
 	}
 
-	duk[DUK_LEN * 2] = '\0';
+	duk->size = DUK_SIZE;
 
 	*pduk = duk;
-	*pduk_len = DUK_LEN;
 
-	WAE_SLOGD("get old duk of length: %d", *pduk_len);
+	WAE_SLOGD("get old duk of length: %d", duk->size);
 
 	return WAE_ERROR_NONE;
 }
 
-static int _get_old_iv(const unsigned char *src, size_t src_len, unsigned char **piv, size_t *piv_len)
+static int _get_old_iv(const raw_buffer_s *src, raw_buffer_s **piv)
 {
-	unsigned int iv_len = SHA_DIGEST_LENGTH;
-	unsigned char *iv = (unsigned char *)malloc(sizeof(unsigned char) * iv_len);
+	if (!is_buffer_valid(src) || piv == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	raw_buffer_s *iv = buffer_create(SHA_DIGEST_LENGTH);
 	if (iv == NULL)
 		return WAE_ERROR_MEMORY;
 
-	if (EVP_Digest(src, src_len, iv, &iv_len, EVP_sha1(), NULL) != 1) {
-		free(iv);
+	if (EVP_Digest(src->buf, src->size, iv->buf, &iv->size, EVP_sha1(), NULL) != 1) {
+		buffer_destroy(iv);
 		return WAE_ERROR_CRYPTO;
 	}
 
 	*piv = iv;
-	*piv_len = iv_len;
 
-	WAE_SLOGD("get old iv of length: %d", *piv_len);
+	WAE_SLOGD("get old iv of length: %d", iv->size);
 
 	return WAE_ERROR_NONE;
 }
 
-static int _decrypt(const unsigned char *key, size_t key_len,
-					const unsigned char *iv, size_t iv_len,
-					const unsigned char *data, size_t data_len,
-					unsigned char **pdecrypted, size_t *pdecrypted_len)
+static int _decrypt(const crypto_element_s *ce, const raw_buffer_s *data,
+					raw_buffer_s **pdecrypted)
 {
-	if (key == NULL || iv == NULL || data == NULL || pdecrypted == NULL ||
-			pdecrypted_len == 0)
+	if (!is_crypto_element_valid(ce) || !is_buffer_valid(data) || pdecrypted == NULL)
 		return WAE_ERROR_INVALID_PARAMETER;
 
-	if (key_len != 16 || iv_len < 16) {
+	if (ce->dek->size != DUK_SIZE || ce->iv->size < DUK_SIZE) {
 		WAE_SLOGE("Invalid key or iv size for decrypt by aes_128_cbc algorithm. "
 				  "key should be 16 bytes and iv should be bigger than 16 bytes");
 		return WAE_ERROR_INVALID_PARAMETER;
@@ -110,22 +108,22 @@ static int _decrypt(const unsigned char *key, size_t key_len,
 
 	const struct evp_cipher_st *algo = EVP_aes_128_cbc();
 
-	EVP_CIPHER_CTX ctx;
-
-	size_t tmp_len = (data_len / algo->block_size + 1) * algo->block_size;
-	int decrypted_len = 0;
+	int in_len = data->size;
+	int out_len = 0;
 	int final_len = 0;
 
-	unsigned char *decrypted = (unsigned char *)calloc(tmp_len, 1);
+	raw_buffer_s *decrypted = buffer_create(
+			(in_len / algo->block_size + 1) * algo->block_size);
 
 	if (decrypted == NULL)
 		return WAE_ERROR_MEMORY;
 
+	EVP_CIPHER_CTX ctx;
 	EVP_CIPHER_CTX_init(&ctx);
 
 	int ret = WAE_ERROR_NONE;
 
-	if (EVP_CipherInit(&ctx, algo, key, iv, 0) != 1) {
+	if (EVP_CipherInit(&ctx, algo, ce->dek->buf, ce->iv->buf, 0) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
@@ -135,66 +133,89 @@ static int _decrypt(const unsigned char *key, size_t key_len,
 		goto error;
 	}
 
-	if (EVP_CipherUpdate(&ctx, decrypted, &decrypted_len, data, data_len) != 1) {
+	if (EVP_CipherUpdate(&ctx, decrypted->buf, &out_len, data->buf, in_len) != 1) {
 		ret = WAE_ERROR_CRYPTO;
-		goto error;
-	} else if (decrypted_len <= 0) {
-		WAE_SLOGE("EVP_CipherUpdate success but returned decrypted_len(%d) <= 0",
-				  decrypted_len);
-		ret = WAE_ERROR_UNKNOWN;
 		goto error;
 	}
 
-	if (EVP_CipherFinal(&ctx, decrypted + decrypted_len, &final_len) != 1) {
+	if (EVP_CipherFinal(&ctx, decrypted->buf + out_len, &final_len) != 1) {
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
-	} else if (final_len <= 0) {
-		WAE_SLOGE("EVP_CipherFinal success but returned final_len(%d) <= 0",
-				  final_len);
-		ret = WAE_ERROR_UNKNOWN;
-		goto error;
 	}
+
+	decrypted->size = out_len + final_len;
 
 	*pdecrypted = decrypted;
-	*pdecrypted_len = decrypted_len + final_len;
 
 error:
 	EVP_CIPHER_CTX_cleanup(&ctx);
 
 	if (ret != WAE_ERROR_NONE)
-		free(decrypted);
+		buffer_destroy(decrypted);
 
 	return ret;
 }
 
-int decrypt_by_old_ss_algo(const char *pkg_id, const unsigned char *encrypted, size_t encrypted_len,
-						   unsigned char **pdecrypted, size_t *pdecrypted_len)
+int get_old_ss_crypto_element(const char *pkg_id, crypto_element_s **pce)
 {
-	unsigned char *duk = NULL;
-	size_t duk_len = 0;
-	unsigned char *iv = NULL;
-	size_t iv_len = 0;
+	if (pkg_id == NULL || pce == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
 
-	int ret = _get_old_duk(pkg_id, &duk, &duk_len);
+	raw_buffer_s *duk = NULL;
+	raw_buffer_s *iv = NULL;
+	crypto_element_s *ce = NULL;
 
+	int ret = _get_old_duk(pkg_id, &duk);
 	if (ret != WAE_ERROR_NONE)
 		goto error;
 
-	ret = _get_old_iv(duk, duk_len, &iv, &iv_len);
-
+	ret = _get_old_iv(duk, &iv);
 	if (ret != WAE_ERROR_NONE)
 		goto error;
 
-	ret = _decrypt(duk, duk_len, iv, iv_len, encrypted, encrypted_len, pdecrypted, pdecrypted_len);
+	ce = crypto_element_create(duk, iv);
+	if (ce == NULL) {
+		ret = WAE_ERROR_MEMORY;
+		goto error;
+	}
 
-	WAE_SLOGI("decrypt with old ss algo success of pkg: %s", pkg_id);
+	ce->is_migrated_app = true;
 
-error:
-	if (ret == WAE_ERROR_CRYPTO)
-		_logging_openssl_err();
-
-	free(duk);
-	free(iv);
+	*pce = ce;
 
 	return WAE_ERROR_NONE;
+
+error:
+	if (ce == NULL) {
+		buffer_destroy(duk);
+		buffer_destroy(iv);
+	} else {
+		crypto_element_destroy(ce);
+	}
+
+	return ret;
+}
+
+int decrypt_by_old_ss_algo(const crypto_element_s *ce, const raw_buffer_s *encrypted,
+						   raw_buffer_s **pdecrypted)
+{
+	if (!is_crypto_element_valid(ce) || !is_buffer_valid(encrypted) || pdecrypted == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	int ret = _decrypt(ce, encrypted, pdecrypted);
+
+	switch (ret) {
+	case WAE_ERROR_CRYPTO:
+		WAE_SLOGE("decrypt with old ss algo failed with crypto error below.");
+		_logging_openssl_err();
+		break;
+	case WAE_ERROR_NONE:
+		WAE_SLOGI("decrypt with old ss algo success!");
+		break;
+	default:
+		WAE_SLOGE("decrypt with old ss algo failed! ret(%d)", ret);
+		break;
+	}
+
+	return ret;
 }
