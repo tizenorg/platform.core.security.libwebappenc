@@ -32,12 +32,12 @@ BOOST_AUTO_TEST_SUITE(GLOBAL_APP)
 
 BOOST_AUTO_TEST_CASE(add_get_remove_dek)
 {
-	Wae::Test::add_get_remove_dek(WAE_DOWNLOADED_GLOBAL_APP);
+	Wae::Test::add_get_remove_ce(WAE_DOWNLOADED_GLOBAL_APP);
 }
 
 BOOST_AUTO_TEST_CASE(create_app_dek)
 {
-	Wae::Test::create_app_dek(WAE_DOWNLOADED_GLOBAL_APP);
+	Wae::Test::create_app_ce(WAE_DOWNLOADED_GLOBAL_APP);
 }
 
 BOOST_AUTO_TEST_CASE(encrypt_decrypt)
@@ -52,12 +52,12 @@ BOOST_AUTO_TEST_SUITE(PRELOADED_APP)
 
 BOOST_AUTO_TEST_CASE(add_get_remove_dek)
 {
-	Wae::Test::add_get_remove_dek(WAE_PRELOADED_APP);
+	Wae::Test::add_get_remove_ce(WAE_PRELOADED_APP);
 }
 
 BOOST_AUTO_TEST_CASE(create_app_dek)
 {
-	Wae::Test::create_app_dek(WAE_PRELOADED_APP);
+	Wae::Test::create_app_ce(WAE_PRELOADED_APP);
 }
 
 BOOST_AUTO_TEST_CASE(encrypt_decrypt)

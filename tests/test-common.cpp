@@ -38,15 +38,42 @@ std::string bytes_to_hex(const std::vector<unsigned char> &bytes)
 	return ss.str();
 }
 
-std::vector<unsigned char> bytearr_to_vec(const unsigned char *bytes, size_t len)
+std::string bytes_to_hex(const raw_buffer_s *rb)
 {
-	if (bytes == nullptr || len == 0)
-		return std::vector<unsigned char>();
+	if (!is_buffer_valid(rb))
+		return std::string();
 
-	std::vector<unsigned char> vec;
+	return bytes_to_hex(rb->buf, rb->size);
+}
+
+std::string bytes_to_hex(const unsigned char *ptr, size_t len)
+{
+	std::stringstream ss;
+	ss << std::hex;
 
 	for (size_t i = 0; i < len; ++i)
-		vec.push_back(bytes[i]);
+		ss << std::setw(2) << std::setfill('0') << static_cast<int>(ptr[i]);
+
+	return ss.str();
+}
+
+std::vector<unsigned char> bytearr_to_vec(const raw_buffer_s *rb)
+{
+	if (!is_buffer_valid(rb))
+		return std::vector<unsigned char>();
+
+	return bytearr_to_vec(rb->buf, rb->size);
+}
+
+std::vector<unsigned char> bytearr_to_vec(const unsigned char *ptr, size_t len)
+{
+	if (ptr == nullptr || len == 0)
+		return std::vector<unsigned char>();
+
+	std::vector<unsigned char> vec(len);
+
+	for (size_t i = 0; i < len; ++i)
+		vec[i] = ptr[i];
 
 	return vec;
 }

@@ -22,6 +22,7 @@
  */
 #include "web_app_enc.h"
 
+#include <string>
 #include <cstring>
 #include <unistd.h>
 
@@ -31,6 +32,62 @@
 #include "crypto_service.h"
 
 #include "test-common.h"
+
+namespace {
+
+using rb_raii = std::unique_ptr<raw_buffer_s, void(*)(raw_buffer_s *)>;
+using ce_raii = std::unique_ptr<crypto_element_s, void(*)(crypto_element_s *)>;
+using map_raii = std::unique_ptr<crypto_element_map_s, void(*)(crypto_element_map_s *)>;
+
+inline rb_raii _safe(raw_buffer_s *ptr)
+{
+	return rb_raii(ptr, buffer_destroy);
+}
+
+inline ce_raii _safe(crypto_element_s *ptr)
+{
+	return ce_raii(ptr, crypto_element_destroy);
+}
+
+inline map_raii _safe(crypto_element_map_s *ptr)
+{
+	return map_raii(ptr, crypto_element_map_destroy);
+}
+
+crypto_element_s *_create_ce(void)
+{
+	raw_buffer_s *dek = buffer_create(32);
+	raw_buffer_s *iv = buffer_create(16);
+
+	if (dek == nullptr || iv == nullptr) {
+		buffer_destroy(dek);
+		buffer_destroy(iv);
+		BOOST_REQUIRE(false);
+	}
+
+	crypto_element_s *ce = crypto_element_create(dek, iv);
+	if (ce == nullptr) {
+		buffer_destroy(dek);
+		buffer_destroy(iv);
+		BOOST_REQUIRE(false);
+	}
+
+	int ret = _get_random(ce->dek);
+	if (ret != WAE_ERROR_NONE) {
+		crypto_element_destroy(ce);
+		BOOST_REQUIRE(false);
+	}
+
+	ret = _get_random(ce->iv);
+	if (ret != WAE_ERROR_NONE) {
+		crypto_element_destroy(ce);
+		BOOST_REQUIRE(false);
+	}
+
+	return ce;
+}
+
+}
 
 BOOST_AUTO_TEST_SUITE(SYSTEM)
 
@@ -78,29 +135,37 @@ BOOST_AUTO_TEST_CASE(encrypt_decrypt_app_dek)
 		"+wIDAQAB\n"
 		"-----END PUBLIC KEY-----";
 
-	std::vector<unsigned char> dek(32, 0);
+	raw_buffer_s *dek = buffer_create(32);
 
-	unsigned char *_encrypted = nullptr;
-	size_t _encrypted_len = 0;
-	int ret = encrypt_app_dek(reinterpret_cast<const unsigned char *>(public_key),
-							  strlen(public_key), dek.data(), dek.size(), &_encrypted,
-							  &_encrypted_len);
-	auto encrypted = Wae::Test::bytearr_to_vec(_encrypted, _encrypted_len);
-	free(_encrypted);
+	auto _raii1 = _safe(dek);
+
+	BOOST_REQUIRE_MESSAGE(dek != nullptr && dek->size == 32, "Failed to create buffer");
+	BOOST_REQUIRE_MESSAGE(_get_random(dek) == WAE_ERROR_NONE, "Failed to get random");
+
+	raw_buffer_s pubkey;
+
+	pubkey.buf = (unsigned char *)public_key;
+	pubkey.size = strlen(public_key);
+
+	raw_buffer_s *encrypted = nullptr;
+	int ret = encrypt_app_dek(&pubkey, dek, &encrypted);
+
+	auto _raii2 = _safe(encrypted);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to encrypt_app_dek. ec: " << ret);
 
-	unsigned char *_decrypted = nullptr;
-	size_t _decrypted_len = 0;
-	ret = decrypt_app_dek(reinterpret_cast<const unsigned char *>(private_key),
-						  strlen(private_key), nullptr, encrypted.data(), encrypted.size(),
-						  &_decrypted, &_decrypted_len);
-	auto decrypted = Wae::Test::bytearr_to_vec(_decrypted, _decrypted_len);
-	free(_decrypted);
+	raw_buffer_s prikey;
+	prikey.buf = (unsigned char *)private_key;
+	prikey.size = strlen(private_key);
+
+	raw_buffer_s *decrypted = nullptr;
+	ret = decrypt_app_dek(&prikey, nullptr, encrypted, &decrypted);
+
+	auto _raii3 = _safe(decrypted);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to decrypt_app_dek. ec: " << ret);
 
-	BOOST_REQUIRE_MESSAGE(dek == decrypted,
+	BOOST_REQUIRE_MESSAGE(Wae::Test::bytes_to_hex(dek) == Wae::Test::bytes_to_hex(decrypted),
 			"encrypted/decrypted dek isn't valid. "
 			"dek(" << Wae::Test::bytes_to_hex(dek) << ") "
 			"decrypted(" << Wae::Test::bytes_to_hex(decrypted) << ")");
@@ -108,37 +173,32 @@ BOOST_AUTO_TEST_CASE(encrypt_decrypt_app_dek)
 
 BOOST_AUTO_TEST_CASE(encrypt_decrypt_aes_cbc)
 {
-	std::vector<unsigned char> plaintext = {
-		'a', 'b', 'c', 'a', 'b', 'c', 'x', 'y',
-		'o', 'q', '2', 'e', 'v', '0', '1', 'x'
-	};
+	raw_buffer_s *data = buffer_create(16);
 
-	size_t dek_len = 32;
-	std::vector<unsigned char> dek(dek_len, 0);
+	auto _raii1 = _safe(data);
 
-	int ret = _get_random(dek.size(), dek.data());
-	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to get random");
+	BOOST_REQUIRE_MESSAGE(data != nullptr && data->size == 16, "Failed to create buffer");
 
-	unsigned char *_encrypted = nullptr;
-	size_t _encrypted_len = 0;
-	ret = encrypt_aes_cbc(dek.data(), dek.size(), plaintext.data(), plaintext.size(),
-						  &_encrypted, &_encrypted_len);
-	auto encrypted = Wae::Test::bytearr_to_vec(_encrypted, _encrypted_len);
-	free(_encrypted);
+	crypto_element_s *ce = _create_ce();
+
+	auto _raii2 = _safe(ce);
+
+	raw_buffer_s *encrypted = nullptr;
+	int ret = encrypt_aes_cbc(ce, data, &encrypted);
+
+	auto _raii3 = _safe(encrypted);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to encrypt_aes_cbc. ec: " << ret);
 
-	unsigned char *_decrypted = nullptr;
-	size_t _decrypted_len = 0;
-	ret = decrypt_aes_cbc(dek.data(), dek.size(), encrypted.data(), encrypted.size(),
-						  &_decrypted, &_decrypted_len);
-	auto decrypted = Wae::Test::bytearr_to_vec(_decrypted, _decrypted_len);
-	free(_decrypted);
+	raw_buffer_s *decrypted = nullptr;
+	ret = decrypt_aes_cbc(ce, encrypted, &decrypted);
+
+	auto _raii4 = _safe(decrypted);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to decrypt_aes_cbc. ec: " << ret);
-	BOOST_REQUIRE_MESSAGE(plaintext == decrypted,
+	BOOST_REQUIRE_MESSAGE(Wae::Test::bytes_to_hex(data) == Wae::Test::bytes_to_hex(decrypted),
 			"decrypted plaintext isn't valid. "
-			"plaintext(" << Wae::Test::bytes_to_hex(plaintext) << ") "
+			"plaintext(" << Wae::Test::bytes_to_hex(data) << ") "
 			"decrypted(" << Wae::Test::bytes_to_hex(decrypted) << ")");
 }
 
@@ -149,90 +209,79 @@ BOOST_AUTO_TEST_CASE(cache)
 	const char *pkg3 = "pkg3";
 	const char *pkgDummy = "dummy";
 
-	std::vector<unsigned char> dek1(32, 1);
-	std::vector<unsigned char> dek2(32, 2);
-	std::vector<unsigned char> dek3(32, 3);
+	auto ce1 = _create_ce();
+	auto ce2 = _create_ce();
+	auto ce3 = _create_ce();
 
-	_initialize_cache();
+	crypto_element_map_s *map = nullptr;
 
-	_add_app_dek_to_cache(pkg1, dek1.data());
-	_add_app_dek_to_cache(pkg2, dek2.data());
-	_add_app_dek_to_cache(pkg3, dek3.data());
+	int tmp = crypto_element_map_add(&map, pkg1, ce1);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to add ce to map. ret: " << tmp);
 
-	size_t dek_len = 32;
-	const unsigned char *_cached = _get_app_dek_from_cache(pkg1);
-	auto cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
+	tmp = crypto_element_map_add(&map, pkg2, ce2);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to add ce to map. ret: " << tmp);
 
-	BOOST_REQUIRE_MESSAGE(cached == dek1,
-			"cached dek isn't valid! "
-			"dek(" << Wae::Test::bytes_to_hex(dek1) << ") "
-			"cached(" << Wae::Test::bytes_to_hex(cached) << ")");
+	tmp = crypto_element_map_add(&map, pkg3, ce3);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to add ce to map. ret: " << tmp);
 
-	_cached = _get_app_dek_from_cache(pkg2);
-	cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkg1) == ce1,
+			"cached ce has different address with actual.");
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkg2) == ce2,
+			"cached ce has different address with actual.");
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkg3) == ce3,
+			"cached ce has different address with actual.");
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkgDummy) == nullptr,
+			"something returned with pkg dummy from map which should be null.");
 
-	BOOST_REQUIRE_MESSAGE(cached == dek2,
-			"cached dek isn't valid! "
-			"dek(" << Wae::Test::bytes_to_hex(dek2) << ") "
-			"cached(" << Wae::Test::bytes_to_hex(cached) << ")");
+	crypto_element_map_remove(&map, pkg3);
 
-	_cached = _get_app_dek_from_cache(pkg3);
-	cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkg3) == nullptr,
+			"removed pkg(" << pkg3 << ") is returned from map which should be null.");
 
-	BOOST_REQUIRE_MESSAGE(cached == dek3,
-			"cached dek isn't valid! "
-			"dek(" << Wae::Test::bytes_to_hex(dek3) << ") "
-			"cached(" << Wae::Test::bytes_to_hex(cached) << ")");
+	auto ce4 = _create_ce();
+	tmp = crypto_element_map_add(&map, pkg1, ce4);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to update ce to map. ret: " << tmp);
 
-	_cached = _get_app_dek_from_cache(pkgDummy);
-	if (_cached) {
-		cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
-		BOOST_REQUIRE_MESSAGE(false,
-				"wrong cached val is extracted by dummy pkg id. "
-				"val(" << Wae::Test::bytes_to_hex(cached) << ")");
+	BOOST_REQUIRE_MESSAGE(crypto_element_map_get(map, pkg1) == ce4,
+			"cached ce has different address with actual.");
+
+	crypto_element_map_destroy(map);
+}
+
+BOOST_AUTO_TEST_CASE(cache_max)
+{
+	crypto_element_map_s *map = nullptr;
+
+	for (size_t i = 0; i < MAX_MAP_ELEMENT_SIZE + 1; ++i) {
+		BOOST_REQUIRE(crypto_element_map_add(&map, std::to_string(i).c_str(), _create_ce()) == WAE_ERROR_NONE);
 	}
 
-	_remove_app_dek_from_cache(pkg3);
+	BOOST_REQUIRE(crypto_element_map_get(map, "0") == nullptr);
 
-	_cached = _get_app_dek_from_cache(pkg3);
-	if (_cached) {
-		cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
-		BOOST_REQUIRE_MESSAGE(false,
-				"app dek removed from cache but it's remained! "
-				"val(" << Wae::Test::bytes_to_hex(cached) << ")");
-	}
-
-	_initialize_cache();
-
-	_add_app_dek_to_cache(pkg1, dek1.data());
-
-	_cached = nullptr;
-	_cached = _get_app_dek_from_cache(pkg2);
-	if (_cached) {
-		cached = Wae::Test::bytearr_to_vec(_cached, dek_len);
-		BOOST_REQUIRE_MESSAGE(false,
-				"cache is initialized but something is remained! "
-				"val(" << Wae::Test::bytes_to_hex(cached) << ")");
-	}
+	crypto_element_map_destroy(map);
 }
 
 BOOST_AUTO_TEST_CASE(read_write_encrypted_app_dek)
 {
 	const char *pkg_id = "write_test_pkg";
 
-	std::vector<unsigned char> dek(256, 0);
+	raw_buffer_s *dek = buffer_create(256);
 
-	int ret = _write_encrypted_app_dek_to_file(pkg_id, dek.data(), dek.size());
+	auto raii1 = _safe(dek);
+
+	BOOST_REQUIRE(dek != nullptr);
+	BOOST_REQUIRE(_get_random(dek) == WAE_ERROR_NONE);
+
+	int ret = _write_encrypted_app_dek_to_file(pkg_id, dek);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to write_encrypted_app_dek_to_file. ec: " << ret);
 
-	unsigned char *_readed = nullptr;
-	size_t _readed_len = 0;
-	ret = _read_encrypted_app_dek_from_file(pkg_id, &_readed, &_readed_len);
-	auto readed = Wae::Test::bytearr_to_vec(_readed, _readed_len);
-	free(_readed);
+	raw_buffer_s *readed = nullptr;
+	ret = _read_encrypted_app_dek_from_file(pkg_id, &readed);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to read_encrypted_app_dek_from_file. ec: " << ret);
 
-	BOOST_REQUIRE_MESSAGE(dek == readed,
+	auto raii2 = _safe(readed);
+
+	BOOST_REQUIRE_MESSAGE(Wae::Test::bytes_to_hex(dek) == Wae::Test::bytes_to_hex(readed),
 			"dek isn't match after write/read file. "
 			"dek(" << Wae::Test::bytes_to_hex(dek) << ") "
 			"readed(" << Wae::Test::bytes_to_hex(readed) << ")");
@@ -242,35 +291,23 @@ BOOST_AUTO_TEST_CASE(get_create_preloaded_app_dek_1)
 {
 	const char *pkg_id = "TEST_PKG_ID_FOR_CREATE";
 
-	unsigned char *_readed = nullptr;
-	size_t _readed_len = 0;
-	int ret = get_preloaded_app_dek(pkg_id, &_readed, &_readed_len);
-	auto readed = Wae::Test::bytearr_to_vec(_readed, _readed_len);
-	free(_readed);
+	const crypto_element_s *readed = nullptr;
+	int ret = get_preloaded_app_ce(pkg_id, &readed);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NO_KEY,
-			"preloaded app dek to create is already exist. ec: " << ret);
+			"preloaded app ce to create is already exist. ec: " << ret);
 
-	unsigned char *_dek = nullptr;
-	size_t _dek_len = 0;
-	ret = create_preloaded_app_dek(pkg_id, &_dek, &_dek_len);
-	auto dek = Wae::Test::bytearr_to_vec(_dek, _dek_len);
+	const crypto_element_s *ce = nullptr;
+	ret = create_preloaded_app_ce(pkg_id, &ce);
 
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed to create_preloaded_app_dek. ec: " << ret);
+			"Failed to create_preloaded_app_ce. ec: " << ret);
 
-	_readed = nullptr;
-	ret = get_preloaded_app_dek(pkg_id, &_readed, &_readed_len);
-	readed = Wae::Test::bytearr_to_vec(_readed, _readed_len);
-	free(_readed);
-
+	ret = get_preloaded_app_ce(pkg_id, &readed);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed to get_preloaded_app_dek. ec: " << ret);
+			"Failed to get_preloaded_app_ce. ec: " << ret);
 
-	BOOST_REQUIRE_MESSAGE(dek == readed,
-			"created/loaded dek is not matched! "
-			"created(" << Wae::Test::bytes_to_hex(dek) << ") "
-			"loaded(" << Wae::Test::bytes_to_hex(readed) << ")");
+	BOOST_REQUIRE_MESSAGE(readed == ce, "cached ce address and actual is different!");
 }
 
 BOOST_AUTO_TEST_CASE(get_create_preloaded_app_dek_2)
@@ -284,67 +321,42 @@ BOOST_AUTO_TEST_CASE(get_create_preloaded_app_dek_2)
 	_get_preloaded_app_dek_file_path(pkg_id2, sizeof(path2), path2);
 
 	// remove old test data
-	remove_app_dek(pkg_id1, WAE_PRELOADED_APP);
-	remove_app_dek(pkg_id2, WAE_PRELOADED_APP);
+	remove_app_ce(pkg_id1, WAE_PRELOADED_APP);
+	remove_app_ce(pkg_id2, WAE_PRELOADED_APP);
 	unlink(path1);
 	unlink(path2);
 
-	// create 2 deks for preloaded app
-	unsigned char *_dek1 = nullptr;
-	size_t _dek_len1 = 0;
-	int ret = create_preloaded_app_dek(pkg_id1, &_dek1, &_dek_len1);
-	auto dek1 = Wae::Test::bytearr_to_vec(_dek1, _dek_len1);
-	free(_dek1);
-
+	// create 2 ces for preloaded app
+	const crypto_element_s *ce1 = nullptr;
+	int ret = create_preloaded_app_ce(pkg_id1, &ce1);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed to create_preloaded_app_dek. ec: " << ret);
+			"Failed to create_preloaded_app_ce. ec: " << ret);
 
-	unsigned char *_dek2 = nullptr;
-	size_t _dek_len2 = 0;
-	ret = create_preloaded_app_dek(pkg_id2, &_dek2, &_dek_len2);
-	auto dek2 = Wae::Test::bytearr_to_vec(_dek2, _dek_len2);
-	free(_dek2);
-
+	const crypto_element_s *ce2 = nullptr;
+	ret = create_preloaded_app_ce(pkg_id2, &ce2);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed to create_preloaded_app_dek. ec: " << ret);
+			"Failed to create_preloaded_app_ce. ec: " << ret);
 
 	ret = load_preloaded_app_deks(true);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
 			"Failed to load_preloaded_app_deks. ec: " << ret);
 
-	unsigned char *_readed1 = nullptr;
-	size_t _readed_len1 = 0;
-	ret = get_app_dek(pkg_id1, WAE_PRELOADED_APP, &_readed1, &_readed_len1);
-	auto readed1 = Wae::Test::bytearr_to_vec(_readed1, _readed_len1);
-	free(_readed1);
-
+	const crypto_element_s *readed1 = nullptr;
+	ret = get_app_ce(pkg_id1, WAE_PRELOADED_APP, false, &readed1);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to get_app_dek. ec: " << ret);
 
-	unsigned char *_readed2 = nullptr;
-	size_t _readed_len2 = 0;
-	ret = get_app_dek(pkg_id2, WAE_PRELOADED_APP, &_readed2, &_readed_len2);
-	auto readed2 = Wae::Test::bytearr_to_vec(_readed2, _readed_len2);
-	free(_readed2);
-
+	const crypto_element_s *readed2 = nullptr;
+	ret = get_app_ce(pkg_id2, WAE_PRELOADED_APP, false, &readed2);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to get_app_dek. ec: " << ret);
 
-	BOOST_REQUIRE_MESSAGE(dek1 == readed1,
-			"readed dek and original isn't matched! "
-			"original(" << Wae::Test::bytes_to_hex(dek1) << ") "
-			"readed(" << Wae::Test::bytes_to_hex(readed1) << ")");
+	BOOST_REQUIRE_MESSAGE(readed1 == ce1, "cached ce and actual address is different!");
+	BOOST_REQUIRE_MESSAGE(readed2 == ce2, "cached ce and actual address is different!");
 
-	BOOST_REQUIRE_MESSAGE(dek2 == readed2,
-			"readed dek and original isn't matched! "
-			"original(" << Wae::Test::bytes_to_hex(dek2) << ") "
-			"readed(" << Wae::Test::bytes_to_hex(readed2) << ")");
+	ret = remove_app_ce(pkg_id1, WAE_PRELOADED_APP);
+	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed remove app ce. ec: " << ret);
 
-	ret = remove_app_dek(pkg_id1, WAE_PRELOADED_APP);
-	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed remove app dek after used. ec: " << ret);
-
-	ret = remove_app_dek(pkg_id2, WAE_PRELOADED_APP);
-	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE,
-			"Failed remove app dek after used. ec: " << ret);
+	ret = remove_app_ce(pkg_id2, WAE_PRELOADED_APP);
+	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed remove app ce. ec: " << ret);
 }
 
 BOOST_AUTO_TEST_SUITE_END() // INTERNALS

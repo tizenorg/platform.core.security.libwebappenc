@@ -25,6 +25,8 @@ SET(WEB_APP_ENC_SOURCES
 	key_handler.c
 	crypto_service.c
 	decrypt_migrated_wgt.c
+	types.c
+	key_manager.c
 )
 
 INCLUDE_DIRECTORIES(
