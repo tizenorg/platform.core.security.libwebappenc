@@ -26,25 +26,18 @@
 extern "C" {
 #endif
 
-#include <stddef.h>
+#include "types.h"
 
-int encrypt_app_dek(const unsigned char *pubkey, size_t pubkey_len,
-					const unsigned char *dek, size_t dek_len,
-					unsigned char **encryptedDek, size_t *encryptedDekLen);
-
-int decrypt_app_dek(const unsigned char *prikey, size_t prikey_len,
-					const char *prikey_pass,
-					const unsigned char *encrypted_dek, size_t encrypted_dek_len,
-					unsigned char **pdecrypted_dek, size_t *pdecrypted_dek_len);
+int encrypt_app_dek(const raw_buffer_s *pubkey, const raw_buffer_s *dek,
+					raw_buffer_s **pencrypted_dek);
+int decrypt_app_dek(const raw_buffer_s *prikey, const char *prikey_pass,
+					const raw_buffer_s *encrypted_dek, raw_buffer_s **pdek);
 
 
-int encrypt_aes_cbc(const unsigned char *key, size_t key_len,
-					const unsigned char *data, size_t data_len,
-					unsigned char **pencrypted_data, size_t *pencrypted_data_len);
-
-int decrypt_aes_cbc(const unsigned char *key, size_t key_len,
-					const unsigned char *data, size_t data_len,
-					unsigned char **pdecrypted_data, size_t *pdecrypted_data_len);
+int encrypt_aes_cbc(const crypto_element_s *ce, const raw_buffer_s *data,
+					raw_buffer_s **pencrypted_data);
+int decrypt_aes_cbc(const crypto_element_s *ce, const raw_buffer_s *encrypted_data,
+					raw_buffer_s **pdata);
 
 #ifdef __cplusplus
 }

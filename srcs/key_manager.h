@@ -14,26 +14,33 @@
  *  limitations under the License
  *
  *
- * @file        decrypt_migrated_wgt.h
- * @author      Kyungwook Tak (k.tak@samsung.com)
+ * @file        key_manager.h
+ * @author      Kyungwook Tak
  * @version     1.0
- * @brief       Restore old encryption key for removed secure-storage
+ * @brief       Serialize/deserialize crypto element and save/get to key-manager
  */
-#ifndef __WAE_SS_KEY_GENERATOR_H
-#define __WAE_SS_KEY_GENERATOR_H
+#ifndef __WAE_KEY_MANAGER_H
+#define __WAE_KEY_MANAGER_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
+#include "web_app_enc.h"
 #include "types.h"
 
-int get_old_ss_crypto_element(const char *pkg_id, crypto_element_s **pce);
-int decrypt_by_old_ss_algo(const crypto_element_s *ce, const raw_buffer_s *encrypted,
-						   raw_buffer_s **pdecrypted);
+int save_to_key_manager(const char *pkg_id, wae_app_type_e type, const crypto_element_s *ce);
+int get_from_key_manager(const char *pkg_id, wae_app_type_e type, crypto_element_s **pce);
+int remove_from_key_manager(const char *pkg_id, wae_app_type_e type);
+
+bool is_app_deks_loaded_in_key_manager();
+int set_app_deks_loaded_to_key_manager();
+int clear_app_deks_loaded_from_key_manager();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __WAE_SS_KEY_GENERATOR_H */
+#endif /* __WAE_KEY_MANAGER_H */
