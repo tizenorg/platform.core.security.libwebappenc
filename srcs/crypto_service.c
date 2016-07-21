@@ -36,11 +36,6 @@
 
 #define AES_256_KEY_SIZE 32
 
-static unsigned char AES_CBC_IV[16] = {
-	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
-	0x08, 0x39, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
-};
-
 static bool __initialized = false;
 
 void _initialize()
@@ -52,26 +47,27 @@ void _initialize()
 	}
 }
 
-int encrypt_app_dek(const unsigned char *pubkey, size_t pubkey_len,
-					const unsigned char *dek, size_t dek_len,
-					unsigned char **pencrypted_dek, size_t *pencrypted_dek_len)
+int encrypt_app_dek(const raw_buffer_s *pubkey, const raw_buffer_s *dek,
+					raw_buffer_s **pencrypted_dek)
 {
+	if (!is_buffer_valid(pubkey) || !is_buffer_valid(dek) || pencrypted_dek == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
 	int ret = WAE_ERROR_NONE;
 	EVP_PKEY *key = NULL;
-	BIO *bio = NULL;
 	EVP_PKEY_CTX *ctx = NULL;
-	unsigned char *out = NULL;
-	size_t out_len = 0;
+	raw_buffer_s *encrypted_dek = NULL;
+	size_t len = 0;
 
 	_initialize();
 
-	bio = BIO_new(BIO_s_mem());
-	BIO_write(bio, pubkey, pubkey_len);
+	BIO *bio = BIO_new(BIO_s_mem());
+	BIO_write(bio, pubkey->buf, pubkey->size);
 	key = PEM_read_bio_PUBKEY(bio, NULL, NULL, NULL);
 
 	if (key == NULL) {
 		BIO_reset(bio);
-		BIO_write(bio, pubkey, pubkey_len);
+		BIO_write(bio, pubkey->buf, pubkey->size);
 		key = d2i_PUBKEY_bio(bio, NULL);
 	}
 
@@ -102,28 +98,26 @@ int encrypt_app_dek(const unsigned char *pubkey, size_t pubkey_len,
 	}
 
 	/* Determine buffer length */
-	if (EVP_PKEY_encrypt(ctx, NULL, &out_len, dek, dek_len) <= 0) {
+	if (EVP_PKEY_encrypt(ctx, NULL, &len, dek->buf, dek->size) <= 0) {
 		WAE_SLOGE("Encrypt APP DEK Failed. EVP_PKEY_encrypt failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	out = OPENSSL_malloc(out_len);
-
-	if (out == NULL) {
+	if ((encrypted_dek = buffer_create(len)) == NULL) {
 		WAE_SLOGE("Encrypt APP DEK Failed. OPENSSL_malloc failed");
 		ret = WAE_ERROR_MEMORY;
 		goto error;
 	}
 
-	if (EVP_PKEY_encrypt(ctx, out, &out_len, dek, dek_len) <= 0) {
+	if (EVP_PKEY_encrypt(ctx, encrypted_dek->buf, &encrypted_dek->size, dek->buf,
+						 dek->size) <= 0) {
 		WAE_SLOGE("Encrypt APP DEK Failed. EVP_PKEY_encrypt failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	*pencrypted_dek = out;
-	*pencrypted_dek_len = out_len;
+	*pencrypted_dek = encrypted_dek;
 
 error:
 	if (bio != NULL)
@@ -135,39 +129,41 @@ error:
 	if (ctx != NULL)
 		EVP_PKEY_CTX_free(ctx);
 
-	if (ret != WAE_ERROR_NONE && out != NULL)
-		OPENSSL_free(out);
+	if (ret != WAE_ERROR_NONE)
+		buffer_destroy(encrypted_dek);
 
 	return ret;
 }
 
-int decrypt_app_dek(const unsigned char *prikey, size_t prikey_len,
-					const char *prikey_pass,
-					const unsigned char *encrypted_dek, size_t encrypted_dek_len,
-					unsigned char **pdecrypted_dek, size_t *pdecrypted_dek_len)
+int decrypt_app_dek(const raw_buffer_s *prikey, const char *prikey_pass,
+					const raw_buffer_s *encrypted_dek, raw_buffer_s **pdek)
 {
+	if (!is_buffer_valid(prikey) || !is_buffer_valid(encrypted_dek) || pdek == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
 	int ret = WAE_ERROR_NONE;
-	EVP_PKEY *key = NULL;
-	BIO *bio = NULL;
 	EVP_PKEY_CTX *ctx = NULL;
-	unsigned char *out = NULL;
-	size_t out_len = 0;
+	raw_buffer_s *dek = NULL;
+	size_t len = 0;
 
 	_initialize();
 
-	bio = BIO_new(BIO_s_mem());
-	BIO_write(bio, prikey, prikey_len);
-	key = PEM_read_bio_PrivateKey(bio, NULL, NULL, (void *)prikey_pass);
+	BIO *bio = BIO_new(BIO_s_mem());
+	if (bio == NULL)
+		return WAE_ERROR_MEMORY;
+
+	BIO_write(bio, prikey->buf, prikey->size);
+	EVP_PKEY *key = PEM_read_bio_PrivateKey(bio, NULL, NULL, (void *)prikey_pass);
 
 	if (key == NULL) {
 		BIO_reset(bio);
-		BIO_write(bio, prikey, prikey_len);
+		BIO_write(bio, prikey->buf, prikey->size);
 		key = d2i_PrivateKey_bio(bio, NULL);
 	}
 
 	if (key == NULL) {
 		ret = WAE_ERROR_FILE;
-		WAE_SLOGE("Failt to convert to public key.");
+		WAE_SLOGE("Failed to convert to public key.");
 		goto error;
 	}
 
@@ -192,28 +188,27 @@ int decrypt_app_dek(const unsigned char *prikey, size_t prikey_len,
 	}
 
 	/* Determine buffer length */
-	if (EVP_PKEY_decrypt(ctx, NULL, &out_len, encrypted_dek, encrypted_dek_len) <= 0) {
+	if (EVP_PKEY_decrypt(ctx, NULL, &len, encrypted_dek->buf, encrypted_dek->size) <= 0) {
 		WAE_SLOGE("Decrypt APP DEK Failed. EVP_PKEY_decrypt failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	out = OPENSSL_malloc(out_len);
-
-	if (out == NULL) {
+	dek = buffer_create(len);
+	if (dek == NULL) {
 		WAE_SLOGE("Decrypt APP DEK Failed. OPENSSL_malloc failed");
 		ret = WAE_ERROR_MEMORY;
 		goto error;
 	}
 
-	if (EVP_PKEY_decrypt(ctx, out, &out_len, encrypted_dek, encrypted_dek_len) <= 0) {
+	if (EVP_PKEY_decrypt(ctx, dek->buf, &dek->size, encrypted_dek->buf,
+						 encrypted_dek->size) <= 0) {
 		WAE_SLOGE("Encrypt APP DEK Failed. EVP_PKEY_decrypt failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	*pdecrypted_dek = out;
-	*pdecrypted_dek_len = out_len;
+	*pdek = dek;
 
 error:
 	if (bio != NULL)
@@ -225,36 +220,40 @@ error:
 	if (ctx != NULL)
 		EVP_PKEY_CTX_free(ctx);
 
-	if (ret != WAE_ERROR_NONE && out != NULL)
-		OPENSSL_free(out);
+	if (ret != WAE_ERROR_NONE)
+		buffer_destroy(dek);
 
 	return ret;
 }
 
 
-int encrypt_aes_cbc(const unsigned char *key, size_t key_len,
-					const unsigned char *data, size_t data_len,
-					unsigned char **pencrypted_data, size_t *pencrypted_data_len)
+int encrypt_aes_cbc(const crypto_element_s *ce, const raw_buffer_s *data,
+					raw_buffer_s **pencrypted_data)
 {
-	EVP_CIPHER_CTX *ctx;
-	int len;
-	unsigned char *ciphertext = NULL;
-	size_t ciphertext_len;
-	unsigned char *iv = AES_CBC_IV;
+	if (!is_crypto_element_valid(ce) || !is_buffer_valid(data) || pencrypted_data == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	EVP_CIPHER_CTX *ctx = NULL;
+	int len = 0;
+	raw_buffer_s *encrypted_data = NULL;
 	int ret = WAE_ERROR_NONE;
 
 	_initialize();
 
-	WAE_SLOGI("Encryption Started. size=%d", data_len);
+	WAE_SLOGI("Encryption Started. size=%d", data->size);
 
 	/* check input paramter */
-	if (key_len != 32) {
-		WAE_SLOGE("Encryption Failed. Invalid Key Length. key_len=%d", key_len);
+	if (ce->dek->size != 32) {
+		WAE_SLOGE("Encryption Failed. Invalid Key Length. key_len=%d", ce->dek->size);
 		return WAE_ERROR_INVALID_PARAMETER;
 	}
 
 	// assing a enough memory for decryption.
-	ciphertext = (unsigned char *) malloc(data_len + 32);
+	encrypted_data = buffer_create(data->size + 32);
+	if (encrypted_data == NULL) {
+		ret = WAE_ERROR_MEMORY;
+		goto error;
+	}
 
 	/* Create and initialise the context */
 	if (!(ctx = EVP_CIPHER_CTX_new())) {
@@ -268,7 +267,7 @@ int encrypt_aes_cbc(const unsigned char *key, size_t key_len,
 	 * In this example we are using 256 bit AES (i.e. a 256 bit key). The
 	 * IV size for *most* modes is the same as the block size. For AES this
 	 * is 128 bits */
-	if (1 != EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+	if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, ce->dek->buf, ce->iv->buf) != 1) {
 		WAE_SLOGE("Encryption Failed. EVP_EncryptInit_ex failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
@@ -277,64 +276,68 @@ int encrypt_aes_cbc(const unsigned char *key, size_t key_len,
 	/* Provide the message to be encrypted, and obtain the encrypted output.
 	 * EVP_EncryptUpdate can be called multiple times if necessary
 	 */
-	if (1 != EVP_EncryptUpdate(ctx, ciphertext, &len, data, data_len)) {
+	len = encrypted_data->size;
+	if (EVP_EncryptUpdate(ctx, encrypted_data->buf, &len, data->buf,
+						  data->size) != 1) {
 		WAE_SLOGE("Encryption Failed. EVP_EncryptUpdate failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	ciphertext_len = len;
+	encrypted_data->size = len;
 
-	/* Finalise the encryption. Further ciphertext bytes may be written at
+	/* Finalise the encryption. Further encrypted data bytes may be written at
 	 * this stage.
 	 */
-	if (1 != EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) {
+	if (EVP_EncryptFinal_ex(ctx, encrypted_data->buf + encrypted_data->size, &len) != 1) {
 		WAE_SLOGE("Encryption Failed. EVP_EncryptFinal_ex failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	ciphertext_len += len;
+	encrypted_data->size += len;
 
-	*pencrypted_data = ciphertext;
-	*pencrypted_data_len = ciphertext_len;
+	*pencrypted_data = encrypted_data;
 
-	ret = WAE_ERROR_NONE;
-	WAE_SLOGI("Encryption Ended Successfully. encrypted_len", ciphertext_len);
+	WAE_SLOGI("Encryption Ended Successfully. encrypted_len: %d", encrypted_data->size);
 
 error:
 	if (ctx != NULL)
 		EVP_CIPHER_CTX_free(ctx);
 
-	if (ret != WAE_ERROR_NONE && ciphertext != NULL)
-		free(ciphertext);
+	if (ret != WAE_ERROR_NONE)
+		buffer_destroy(encrypted_data);
 
 	return ret;
 }
 
-int decrypt_aes_cbc(const unsigned char *key, size_t key_len,
-					const unsigned char *data, size_t data_len,
-					unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
+int decrypt_aes_cbc(const crypto_element_s *ce, const raw_buffer_s *encrypted_data,
+					raw_buffer_s **pdata)
 {
-	EVP_CIPHER_CTX *ctx;
-	int len;
-	unsigned char *plaintext = NULL;
-	size_t plaintext_len;
-	unsigned char *iv = AES_CBC_IV;
+	if (!is_crypto_element_valid(ce) || !is_buffer_valid(encrypted_data) || pdata == NULL)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	EVP_CIPHER_CTX *ctx = NULL;
+	int len = 0;
+	raw_buffer_s *data = NULL;
 	int ret = WAE_ERROR_NONE;
 
 	_initialize();
 
-	WAE_SLOGI("Decryption Started. size=%d", data_len);
+	WAE_SLOGI("Decryption Started. size=%d", encrypted_data->size);
 
 	/* check input paramter */
-	if (key_len != 32) {
-		WAE_SLOGE("Decryption Failed. Invalid Key Length. key_len=%d", key_len);
+	if (ce->dek->size != 32) {
+		WAE_SLOGE("Decryption Failed. Invalid Key Length. key_len=%d", ce->dek->size);
 		return WAE_ERROR_INVALID_PARAMETER;
 	}
 
 	// assing a enough memory for decryption.
-	plaintext = (unsigned char *) malloc(data_len);
+	data = buffer_create(encrypted_data->size);
+	if (data == NULL) {
+		ret = WAE_ERROR_MEMORY;
+		goto error;
+	}
 
 	/* Create and initialise the context */
 	if (!(ctx = EVP_CIPHER_CTX_new())) {
@@ -348,7 +351,7 @@ int decrypt_aes_cbc(const unsigned char *key, size_t key_len,
 	 * In this example we are using 256 bit AES (i.e. a 256 bit key). The
 	 * IV size for *most* modes is the same as the block size. For AES this
 	 * is 128 bits */
-	if (1 != EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) {
+	if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, ce->dek->buf, ce->iv->buf) != 1) {
 		WAE_SLOGE("Decryption Failed. EVP_DecryptInit_ex failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
@@ -357,37 +360,37 @@ int decrypt_aes_cbc(const unsigned char *key, size_t key_len,
 	/* Provide the message to be decrypted, and obtain the plaintext output.
 	 * EVP_DecryptUpdate can be called multiple times if necessary
 	 */
-	if (1 != EVP_DecryptUpdate(ctx, plaintext, &len, data, data_len)) {
+	len = data->size;
+	if (EVP_DecryptUpdate(ctx, data->buf, &len, encrypted_data->buf,
+						  encrypted_data->size) != 1) {
 		WAE_SLOGE("Decryption Failed. EVP_DecryptUpdate failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	plaintext_len = len;
+	data->size = len;
 
 	/* Finalise the decryption. Further plaintext bytes may be written at
 	 * this stage.
 	 */
-	if (1 != EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) {
+	if (EVP_DecryptFinal_ex(ctx, data->buf + data->size, &len) != 1) {
 		WAE_SLOGE("Decryption Failed. EVP_DecryptFinal_ex failed");
 		ret = WAE_ERROR_CRYPTO;
 		goto error;
 	}
 
-	plaintext_len += len;
+	data->size += len;
 
-	*pdecrypted_data = plaintext;
-	*pdecrypted_data_len = plaintext_len;
+	*pdata = data;
 
-	ret = WAE_ERROR_NONE;
-	WAE_SLOGI("Decryption Ended Successfully. decrypted_len", plaintext_len);
+	WAE_SLOGI("Decryption Ended Successfully. decrypted_len: %d", data->size);
 
 error:
 	if (ctx != NULL)
 		EVP_CIPHER_CTX_free(ctx);
 
-	if (ret != WAE_ERROR_NONE && plaintext != NULL)
-		free(plaintext);
+	if (ret != WAE_ERROR_NONE)
+		buffer_destroy(data);
 
 	return ret;
 }

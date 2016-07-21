@@ -28,6 +28,8 @@
 
 #include "colour_log_formatter.h"
 
+#include "types.h"
+
 /* fixtures should be declared on outside of namespace */
 struct TestConfig {
 	TestConfig()
@@ -45,7 +47,10 @@ namespace Wae {
 namespace Test {
 
 std::string bytes_to_hex(const std::vector<unsigned char> &bytes);
-std::vector<unsigned char> bytearr_to_vec(const unsigned char *bytes, size_t len);
+std::string bytes_to_hex(const unsigned char *ptr, size_t len);
+std::string bytes_to_hex(const raw_buffer_s *rb);
+std::vector<unsigned char> bytearr_to_vec(const unsigned char *ptr, size_t len);
+std::vector<unsigned char> bytearr_to_vec(const raw_buffer_s *);
 
 } // namespace Test
 } // namespace Wae

@@ -25,78 +25,64 @@
 
 #include "key_handler.h"
 #include "crypto_service.h"
+#include "types.h"
+#include "key_manager.h"
 
 #include "test-common.h"
 
 namespace Wae {
 namespace Test {
 
-void add_get_remove_dek(wae_app_type_e app_type)
+void add_get_remove_ce(wae_app_type_e app_type)
 {
 	const char *pkg_id = "TEST_PKG_ID";
 
-	std::vector<unsigned char> dek(32, 0);
+	const crypto_element_s *ce = nullptr;
+	int tmp = create_app_ce(pkg_id, app_type, &ce);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to create_app_ce. ec: " << tmp);
 
-	BOOST_REQUIRE(_get_random(dek.size(), dek.data()) == WAE_ERROR_NONE);
+	const crypto_element_s *stored_ce = nullptr;
+	tmp = get_app_ce(pkg_id, app_type, true, &stored_ce);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to get_app_ce. ec: " << tmp);
 
-	remove_app_dek(pkg_id, app_type);
+	BOOST_REQUIRE_MESSAGE(ce == stored_ce,
+		"ce(" << ce << ") and cached ce(" << stored_ce << ") pointer addr is different!");
 
-	int tmp = _add_dek_to_key_manager(pkg_id, app_type, dek.data(), dek.size());
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
-			"Failed to _add_dek_to_key_manager. ec: " << tmp);
+	tmp = remove_app_ce(pkg_id, app_type);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to remove_app_ce. ec: " << tmp);
 
-	unsigned char *_stored_dek = nullptr;
-	size_t _stored_dek_len = 0;
-	tmp = get_app_dek(pkg_id, app_type, &_stored_dek, &_stored_dek_len);
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
-			"Failed to get_app_dek. ec: " << tmp);
-
-	auto stored_dek = Wae::Test::bytearr_to_vec(_stored_dek, _stored_dek_len);
-	free(_stored_dek);
-
-	BOOST_REQUIRE_MESSAGE(stored_dek == dek, "stored dek and dek isn't matched!");
-
-	tmp = remove_app_dek(pkg_id, app_type);
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to remove_app_dek. ec: " << tmp);
-
-	_stored_dek = nullptr;
-	tmp = get_app_dek(pkg_id, app_type, &_stored_dek, &_stored_dek_len);
-	if (_stored_dek)
-		free(_stored_dek);
-
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NO_KEY,
-			"dek removed but it's remained still. ec: " << tmp);
+	if (app_type == WAE_DOWNLOADED_GLOBAL_APP) {
+		tmp = get_app_ce(pkg_id, app_type, true, &stored_ce);
+		BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE && stored_ce->is_migrated_app,
+				"when getting app ce which is there isn't, it should be migrated case! "
+				"ret("<< tmp << ") and is_migrated_app(" << stored_ce->is_migrated_app << ")");
+	} else {
+		tmp = get_app_ce(pkg_id, app_type, false, &stored_ce);
+		BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NO_KEY,
+				"removed app ce is still remaining. ret(" << tmp << ")");
+	}
 }
 
-void create_app_dek(wae_app_type_e app_type)
+void create_app_ce(wae_app_type_e app_type)
 {
 	const char *pkg_id = "TEST_PKG_ID";
 
-	remove_app_dek(pkg_id, app_type);
+	remove_app_ce(pkg_id, app_type);
 
-	unsigned char *_dek = nullptr;
-	size_t _dek_len = 0;
+	const crypto_element_s *ce = nullptr;
 
-	int tmp = create_app_dek(pkg_id, app_type, &_dek, &_dek_len);
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
-			"Failed to create_app_dek. ec: " << tmp);
+	int tmp = create_app_ce(pkg_id, app_type, &ce);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to create_app_ce. ec: " << tmp);
 
-	auto dek = Wae::Test::bytearr_to_vec(_dek, _dek_len);
-	free(_dek);
+	const crypto_element_s *stored_ce = nullptr;
+	tmp = get_app_ce(pkg_id, app_type, false, &stored_ce);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to get_app_ce. ec: " << tmp);
 
-	unsigned char *_stored_dek = nullptr;
-	size_t _stored_dek_len = 0;
-	tmp = get_app_dek(pkg_id, app_type, &_stored_dek, &_stored_dek_len);
-	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to get_app_dek. ec: " << tmp);
-	auto stored_dek = bytearr_to_vec(_stored_dek, _stored_dek_len);
-	free(_stored_dek);
+	BOOST_REQUIRE_MESSAGE(ce == stored_ce,
+		"ce(" << ce << ") and cached ce(" << stored_ce << ") pointer addr is different!");
 
-	BOOST_REQUIRE_MESSAGE(stored_dek == dek,
-		"stored dek and dek isn't matched! "
-		"stored_dek(" << Wae::Test::bytes_to_hex(stored_dek) << ") "
-		"dek(" << Wae::Test::bytes_to_hex(dek) << ")");
-
-	remove_app_dek(pkg_id, app_type);
+	tmp = remove_app_ce(pkg_id, app_type);
+	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to remove_app_ce. ec: " << tmp);
 }
 
 void encrypt_decrypt_web_app(wae_app_type_e app_type)
@@ -125,7 +111,7 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 	wae_remove_app_dek(pkg_id, app_type);
 
 	if (app_type == WAE_PRELOADED_APP)
-		_clear_app_deks_loaded();
+		clear_app_deks_loaded_from_key_manager();
 
 	std::vector<unsigned char> plaintext = {
 		'a', 'b', 'c', 'a', 'b', 'c', 'x', 'y',
@@ -150,7 +136,7 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 	auto encrypted = bytearr_to_vec(_encrypted, _enc_len);
 	free(_encrypted);
 
-	_remove_app_dek_from_cache(pkg_id);
+	_remove_app_ce_from_cache(pkg_id);
 
 	if (app_type == WAE_PRELOADED_APP)
 		load_preloaded_app_deks(true);
@@ -166,8 +152,8 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 
 	BOOST_REQUIRE_MESSAGE(plaintext == decrypted,
 		"plaintext and decrypted isn't matched! "
-		"plaintext(" << Wae::Test::bytes_to_hex(plaintext) << ") "
-		"decrypted(" << Wae::Test::bytes_to_hex(decrypted) << ")");
+		"plaintext(" << bytes_to_hex(plaintext) << ") "
+		"decrypted(" << bytes_to_hex(decrypted) << ")");
 
 	tmp = wae_remove_app_dek(pkg_id, app_type);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
