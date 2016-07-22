@@ -35,6 +35,33 @@
 
 #define DUK_SIZE 16
 
+static void print_ce(const crypto_element_s *ce)
+{
+	WAE_SLOGI("Print crypto elements before starting decrypt migrated web app!");
+	WAE_SLOGI("======= duk. length(%d)", ce->dek->size);
+
+	for (size_t i = 0; i < ce->dek->size; ++i)
+		WAE_SLOGE("[%d] = %02x", i, ce->dek->buf[i]);
+
+	WAE_SLOGI("======= iv. length(%d)", ce->iv->size);
+
+	for (size_t i = 0; i < ce->iv->size; ++i)
+		WAE_SLOGE("[%d] = %02x", i, ce->iv->buf[i]);
+}
+
+static void print_data_hash(const raw_buffer_s *data)
+{
+	size_t len = SHA_DIGEST_LENGTH;
+	unsigned char h[SHA_DIGEST_LENGTH] = {0, };
+	EVP_Digest(data->buf, data->size, h, &len, EVP_sha1(), NULL);
+
+	WAE_SLOGI("====== data hash. data_length(%d) hash_length(%d)", data->size, len);
+	WAE_SLOGI("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			  h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9]);
+	WAE_SLOGI("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+			  h[10], h[11], h[12], h[13], h[14], h[15], h[16], h[17], h[18], h[19]);
+}
+
 static void _logging_openssl_err()
 {
 	unsigned long e = ERR_get_error();
@@ -201,6 +228,9 @@ int decrypt_by_old_ss_algo(const crypto_element_s *ce, const raw_buffer_s *encry
 {
 	if (!is_crypto_element_valid(ce) || !is_buffer_valid(encrypted) || pdecrypted == NULL)
 		return WAE_ERROR_INVALID_PARAMETER;
+
+	print_ce(ce);
+	print_data_hash(encrypted);
 
 	int ret = _decrypt(ce, encrypted, pdecrypted);
 
