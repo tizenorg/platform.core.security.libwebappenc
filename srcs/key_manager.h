@@ -28,12 +28,12 @@ extern "C" {
 
 #include <stdbool.h>
 
-#include "web_app_enc.h"
 #include "types.h"
 
-int save_to_key_manager(const char *pkg_id, wae_app_type_e type, const crypto_element_s *ce);
-int get_from_key_manager(const char *pkg_id, wae_app_type_e type, crypto_element_s **pce);
-int remove_from_key_manager(const char *pkg_id, wae_app_type_e type);
+int save_to_key_manager(const char *name, const char *pkg_id, wae_app_type_e type,
+						const crypto_element_s *ce);
+int get_from_key_manager(const char *name, wae_app_type_e type, crypto_element_s **pce);
+int remove_from_key_manager(const char *name, wae_app_type_e type);
 
 bool is_app_deks_loaded_in_key_manager();
 int set_app_deks_loaded_to_key_manager();

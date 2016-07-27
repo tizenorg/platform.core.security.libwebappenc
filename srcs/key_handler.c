@@ -29,6 +29,7 @@
 
 #include <tzplatform_config.h>
 
+#include "web_app_enc.h"
 #include "wae_log.h"
 #include "crypto_service.h"
 #include "key_manager.h"
@@ -56,19 +57,28 @@ static void deinit_lib(void)
 	crypto_element_map_destroy(_map);
 }
 
-static const crypto_element_s *_get_app_ce_from_cache(const char *pkg_id)
+char *_create_map_key(uid_t uid, const char *pkg_id)
 {
-	return crypto_element_map_get(_map, pkg_id);
+	char *key = NULL;
+
+	int ret = asprintf(&key, "%u-%s", uid, pkg_id);
+
+	return (ret == -1) ? NULL : key;
 }
 
-static int _add_app_ce_to_cache(const char *pkg_id, crypto_element_s *ce)
+static const crypto_element_s *_get_app_ce_from_cache(const char *key)
 {
-	return crypto_element_map_add(&_map, pkg_id, ce);
+	return crypto_element_map_get(_map, key);
 }
 
-void _remove_app_ce_from_cache(const char *pkg_id)
+static int _add_app_ce_to_cache(const char *key, crypto_element_s *ce)
 {
-	crypto_element_map_remove(&_map, pkg_id);
+	return crypto_element_map_add(&_map, key, ce);
+}
+
+void _remove_app_ce_from_cache(const char *key)
+{
+	crypto_element_map_remove(&_map, key);
 }
 
 int _get_random(raw_buffer_s *rb)
@@ -110,13 +120,13 @@ static const char *_get_dek_store_path()
 
 static int _write_to_file(const char *path, const raw_buffer_s *data)
 {
-	if (path == NULL || data == NULL || data->buf == NULL || data->size == 0)
+	if (path == NULL || !is_buffer_valid(data))
 		return WAE_ERROR_INVALID_PARAMETER;
 
 	FILE *f = fopen(path, "w");
 
 	if (f == NULL) {
-		WAE_SLOGE("WAE: Fail to open a file. file=%s", path);
+		WAE_SLOGE("Failed to open a file(%s)", path);
 		return WAE_ERROR_FILE;
 	}
 
@@ -125,7 +135,7 @@ static int _write_to_file(const char *path, const raw_buffer_s *data)
 	fclose(f);
 
 	if (write_len != (int)data->size) {
-		WAE_SLOGE("WAE: Fail to write a file. file=%s", path);
+		WAE_SLOGE("Failed to write a file(%s)", path);
 		return WAE_ERROR_FILE;
 	}
 
@@ -226,99 +236,132 @@ int _write_encrypted_app_dek_to_file(const char *pkg_id, const raw_buffer_s *enc
 	return _write_to_file(path, encrypted);
 }
 
-int get_app_ce(const char *pkg_id, wae_app_type_e app_type, bool create_for_migrated_app,
-			   const crypto_element_s **pce)
+int get_app_ce(uid_t uid, const char *pkg_id, wae_app_type_e app_type,
+			   bool create_for_migrated_app, const crypto_element_s **pce)
 {
 	if (pkg_id == NULL || pce == NULL)
 		return WAE_ERROR_INVALID_PARAMETER;
 
-	const crypto_element_s *cached_ce = _get_app_ce_from_cache(pkg_id);
+	if (uid == 0 && app_type == WAE_DOWNLOADED_NORMAL_APP)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	const char *key = NULL;
+	char *_key_per_user = NULL;
+
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP) {
+		_key_per_user = _create_map_key(uid, pkg_id);
+		if (_key_per_user == NULL)
+			return WAE_ERROR_MEMORY;
+
+		key = _key_per_user;
+	} else {
+		key = pkg_id;
+	}
+
+	const crypto_element_s *cached_ce = _get_app_ce_from_cache(key);
+
 	if (cached_ce != NULL) {
-		WAE_SLOGD("cache hit of app ce for pkg_id(%s)", pkg_id);
+		WAE_SLOGD("cache hit of app ce for key(%s)", key);
 		*pce = cached_ce;
 		return WAE_ERROR_NONE;
 	}
 
-	WAE_SLOGD("cache miss of app ce for pkg_id(%s)", pkg_id);
+	WAE_SLOGD("cache miss of app ce for key(%s)", key);
 
 	crypto_element_s *ce = NULL;
-	int ret = get_from_key_manager(pkg_id, app_type, &ce);
+	int ret = get_from_key_manager(key, app_type, &ce);
 
 	if (create_for_migrated_app &&
 			(ret == WAE_ERROR_NO_KEY && app_type == WAE_DOWNLOADED_GLOBAL_APP)) {
-		WAE_SLOGI("No dek found for pkg_id(%s)! It should be migrated app.", pkg_id);
+		WAE_SLOGI("No dek found for key(%s)! It should be migrated app.", key);
 
-		if ((ret = get_old_ss_crypto_element(pkg_id, &ce)) != WAE_ERROR_NONE)
+		if ((ret = get_old_ss_crypto_element(key, &ce)) != WAE_ERROR_NONE)
 			goto error;
 
 		// (k.tak) disable to save ce to key-maanger for migrated app because of permission issue.
-		//ret = save_to_key_manager(pkg_id, app_type, ce);
+		//ret = save_to_key_manager(key, pkg_id, app_type, ce);
 		//if (ret != WAE_ERROR_NONE) {
 		//	WAE_SLOGW("Failed to save migrated app ce to key-manager with ret(%d). "
 		//			  "Ignore this error because we can create ce later again.", ret);
 		//	ret = WAE_ERROR_NONE;
 		//}
 	} else if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to get crypto element from key-manager. pkg_id=%s, ret=%d",
-				  pkg_id, ret);
+		WAE_SLOGE("Failed to get crypto element from key-manager. key(%s) ret(%d)",
+				  key, ret);
 		goto error;
 	}
 
-	ret = _add_app_ce_to_cache(pkg_id, ce);
+	ret = _add_app_ce_to_cache(key, ce);
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to add ce to cache for pkg_id(%s) ret(%d)", pkg_id, ret);
+		WAE_SLOGE("Failed to add ce to cache for key(%s) ret(%d)", key, ret);
 		goto error;
 	}
 
 	*pce = ce;
 
-	WAE_SLOGD("Successfully get ce! pkgid(%s)", pkg_id);
+	WAE_SLOGD("Successfully get ce! key(%s)", key);
 
 	return WAE_ERROR_NONE;
 
 error:
+	free(_key_per_user);
 	crypto_element_destroy(ce);
 
 	return ret;
 }
 
-int create_app_ce(const char *pkg_id, wae_app_type_e app_type, const crypto_element_s **pce)
+int create_app_ce(uid_t uid, const char *pkg_id, wae_app_type_e app_type,
+				  const crypto_element_s **pce)
 {
 	raw_buffer_s *dek = buffer_create(DEK_LEN);
 	raw_buffer_s *iv = buffer_create(IV_LEN);
 	crypto_element_s *ce = crypto_element_create(dek, iv);
 
 	int ret = WAE_ERROR_NONE;
+	const char *key = NULL;
+	char *_key_per_user = NULL;
 
 	if (ce == NULL) {
 		ret = WAE_ERROR_MEMORY;
 		goto error;
 	}
 
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP) {
+		_key_per_user = _create_map_key(uid, pkg_id);
+		if (_key_per_user == NULL) {
+			ret = WAE_ERROR_MEMORY;
+			goto error;
+		}
+
+		key = _key_per_user;
+	} else {
+		key = pkg_id;
+	}
+
 	memcpy(ce->iv->buf, AES_CBC_IV, ce->iv->size);
 
 	ret = _get_random(dek);
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to get random for dek. pkg_id(%s) ret(%d)", pkg_id, ret);
+		WAE_SLOGE("Failed to get random for dek. key(%s) ret(%d)", key, ret);
 		goto error;
 	}
 
-	ret = save_to_key_manager(pkg_id, app_type, ce);
+	ret = save_to_key_manager(key, pkg_id, app_type, ce);
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to save ce to key-manager. pkg_id(%s) app_type(%d) ret(%d)",
-				  pkg_id, app_type, ret);
+		WAE_SLOGE("Failed to save ce to key-manager. key(%s) app_type(%d) ret(%d)",
+				  key, app_type, ret);
 		goto error;
 	}
 
-	ret = _add_app_ce_to_cache(pkg_id, ce);
+	ret = _add_app_ce_to_cache(key, ce);
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to add ce to cache for pkg_id(%s) ret(%d)", pkg_id, ret);
+		WAE_SLOGE("Failed to add ce to cache for key(%s) ret(%d)", key, ret);
 		goto error;
 	}
 
 	*pce = ce;
 
-	WAE_SLOGI("Success to create dek/iv and store it in key-manager. pkg_id(%s)", pkg_id);
+	WAE_SLOGI("Success to create dek/iv and store it in key-manager. key(%s)", key);
 
 	return WAE_ERROR_NONE;
 
@@ -329,6 +372,8 @@ error:
 	} else {
 		crypto_element_destroy(ce);
 	}
+
+	free(_key_per_user);
 
 	return ret;
 }
@@ -542,7 +587,7 @@ int load_preloaded_app_deks(bool reload)
 			continue;
 		}
 
-		ret = save_to_key_manager(pkg_id, WAE_PRELOADED_APP, ce);
+		ret = save_to_key_manager(pkg_id, pkg_id, WAE_PRELOADED_APP, ce);
 
 		if (ret == WAE_ERROR_KEY_EXISTS) {
 			WAE_SLOGI("Key Manager already has dek. It will be ignored. file=%s",
@@ -574,16 +619,34 @@ error:
 	return ret;
 }
 
-int remove_app_ce(const char *pkg_id, wae_app_type_e app_type)
+int remove_app_ce(uid_t uid, const char *pkg_id, wae_app_type_e app_type)
 {
-	int ret = remove_from_key_manager(pkg_id, app_type);
+	if (uid == 0 && app_type == WAE_DOWNLOADED_NORMAL_APP)
+		return WAE_ERROR_INVALID_PARAMETER;
+
+	const char *key = NULL;
+	char *_key_per_user = NULL;
+
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP) {
+		_key_per_user = _create_map_key(uid, pkg_id);
+		if (_key_per_user == NULL)
+			return WAE_ERROR_MEMORY;
+
+		key = _key_per_user;
+	} else {
+		key = pkg_id;
+	}
+
+	int ret = remove_from_key_manager(key, app_type);
 
 	if (ret != WAE_ERROR_NONE)
-		WAE_SLOGE("Failed to remove app ce for pkg_id(%s) ret(%d)", pkg_id, ret);
+		WAE_SLOGE("Failed to remove app ce for key(%s) ret(%d)", key, ret);
 	else
-		WAE_SLOGI("Success to remove app ce for pkg_id(%s)", pkg_id);
+		WAE_SLOGI("Success to remove app ce for key(%s)", key);
 
-	_remove_app_ce_from_cache(pkg_id);
+	_remove_app_ce_from_cache(key);
+
+	free(_key_per_user);
 
 	return ret;
 }

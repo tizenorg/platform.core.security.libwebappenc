@@ -37,7 +37,6 @@ Requires:      %{name} = %{version}-%{release}
 %description test
 Web application encryption and decryption service (test)
 
-%define installer_label "User"
 %define bin_dir         %TZ_SYS_BIN
 %define rw_share_dir    %TZ_SYS_SHARE
 
@@ -53,8 +52,7 @@ Web application encryption and decryption service (test)
          -DSYSTEMD_UNIT_DIR=%{_unitdir} \
          -DCMAKE_BUILD_TYPE=%{build_type} \
          -DRW_SHARE_DIR=%rw_share_dir \
-         -DBINDIR=%bin_dir \
-         -DINSTALLER_LABEL=%installer_label
+         -DBINDIR=%bin_dir
 
 make %{?jobs:-j%jobs}
 

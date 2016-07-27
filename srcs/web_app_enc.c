@@ -30,7 +30,7 @@
 #include "wae_log.h"
 
 int _wae_encrypt_downloaded_web_application(
-		const char *pkg_id, wae_app_type_e app_type,
+		uid_t uid, const char *pkg_id, wae_app_type_e app_type,
 		const unsigned char *data, size_t data_len,
 		unsigned char **pencrypted_data, size_t *pencrypted_data_len)
 {
@@ -39,10 +39,10 @@ int _wae_encrypt_downloaded_web_application(
 		return WAE_ERROR_INVALID_PARAMETER;
 
 	const crypto_element_s *e = NULL;
-	int ret = get_app_ce(pkg_id, app_type, false, &e);
+	int ret = get_app_ce(uid, pkg_id, app_type, false, &e);
 
 	if (ret == WAE_ERROR_NO_KEY)
-		ret = create_app_ce(pkg_id, app_type, &e);
+		ret = create_app_ce(uid, pkg_id, app_type, &e);
 
 	if (ret != WAE_ERROR_NONE)
 		return ret;
@@ -64,7 +64,8 @@ int _wae_encrypt_downloaded_web_application(
 	return WAE_ERROR_NONE;
 }
 
-int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e app_type,
+int _wae_decrypt_downloaded_web_application(
+		uid_t uid, const char *pkg_id, wae_app_type_e app_type,
 		const unsigned char *data, size_t data_len,
 		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
@@ -77,7 +78,7 @@ int _wae_decrypt_downloaded_web_application(const char *pkg_id, wae_app_type_e a
 	_data.size = data_len;
 
 	const crypto_element_s *ce = NULL;
-	int ret = get_app_ce(pkg_id, app_type, true, &ce);
+	int ret = get_app_ce(uid, pkg_id, app_type, true, &ce);
 
 	if (ret != WAE_ERROR_NONE)
 		return ret;
@@ -134,40 +135,69 @@ int _wae_encrypt_preloaded_web_application(const char *pkg_id,
 	return WAE_ERROR_NONE;
 }
 
-int _wae_decrypt_preloaded_web_application(const char *pkg_id, wae_app_type_e app_type,
+int _wae_decrypt_preloaded_web_application(const char *pkg_id,
 		const unsigned char *data, size_t data_len,
 		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
 	// same with the decryption of downloaded web application
-	return _wae_decrypt_downloaded_web_application(pkg_id, app_type,
+	return _wae_decrypt_downloaded_web_application(0, pkg_id, WAE_PRELOADED_APP,
 			data, data_len, pdecrypted_data, pdecrypted_data_len);
 }
 
-int wae_encrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
-								const unsigned char *data, size_t data_len,
-								unsigned char **pencrypted_data, size_t *pencrypted_data_len)
+int wae_encrypt_web_application(
+		uid_t uid, const char *pkg_id,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pencrypted_data, size_t *pencrypted_data_len)
 {
-	if (app_type == WAE_PRELOADED_APP)
+	return _wae_encrypt_downloaded_web_application(
+			uid, pkg_id, WAE_DOWNLOADED_NORMAL_APP,
+			data, data_len, pencrypted_data, pencrypted_data_len);
+}
+
+int wae_encrypt_global_web_application(
+		const char *pkg_id, bool is_preloaded,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pencrypted_data, size_t *pencrypted_data_len)
+{
+	if (is_preloaded)
 		return _wae_encrypt_preloaded_web_application(pkg_id,
 				data, data_len, pencrypted_data, pencrypted_data_len);
 	else
-		return _wae_encrypt_downloaded_web_application(pkg_id, app_type,
+		return _wae_encrypt_downloaded_web_application(
+				0, pkg_id, WAE_DOWNLOADED_GLOBAL_APP,
 				data, data_len, pencrypted_data, pencrypted_data_len);
 }
 
-int wae_decrypt_web_application(const char *pkg_id, wae_app_type_e app_type,
-								const unsigned char *data, size_t data_len,
-								unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
+int wae_decrypt_web_application(
+		uid_t uid, const char *pkg_id,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
-	if (app_type == WAE_PRELOADED_APP)
-		return _wae_decrypt_preloaded_web_application(pkg_id, app_type,
-				data, data_len, pdecrypted_data, pdecrypted_data_len);
-	else
-		return _wae_decrypt_downloaded_web_application(pkg_id, app_type,
+	return _wae_decrypt_downloaded_web_application(
+				uid, pkg_id, WAE_DOWNLOADED_NORMAL_APP,
 				data, data_len, pdecrypted_data, pdecrypted_data_len);
 }
 
-int wae_remove_app_dek(const char *pkg_id, wae_app_type_e app_type)
+int wae_decrypt_global_web_application(
+		const char *pkg_id, bool is_preloaded,
+		const unsigned char *data, size_t data_len,
+		unsigned char **pdecrypted_data, size_t *pdecrypted_data_len)
 {
-	return remove_app_ce(pkg_id, app_type);
+	if (is_preloaded)
+		return _wae_decrypt_preloaded_web_application(pkg_id,
+				data, data_len, pdecrypted_data, pdecrypted_data_len);
+	else
+		return _wae_decrypt_downloaded_web_application(
+				0, pkg_id, WAE_DOWNLOADED_GLOBAL_APP,
+				data, data_len, pdecrypted_data, pdecrypted_data_len);
+}
+
+int wae_remove_app_dek(uid_t uid, const char *pkg_id)
+{
+	return remove_app_ce(uid, pkg_id, WAE_DOWNLOADED_NORMAL_APP);
+}
+
+int wae_remove_global_app_dek(const char *pkg_id, bool is_preloaded)
+{
+	return remove_app_ce(0, pkg_id, is_preloaded ? WAE_PRELOADED_APP : WAE_DOWNLOADED_GLOBAL_APP);
 }

@@ -29,6 +29,15 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
+#define API    __attribute__ ((visibility("default")))
+#define UNUSED __attribute__ ((unused))
+
+typedef enum {
+	WAE_DOWNLOADED_NORMAL_APP = 0,
+	WAE_DOWNLOADED_GLOBAL_APP = 1,
+	WAE_PRELOADED_APP         = 2
+} wae_app_type_e;
+
 typedef struct _raw_buffer_s {
 	unsigned char *buf;
 	size_t size;
