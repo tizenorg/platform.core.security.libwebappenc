@@ -20,7 +20,7 @@
  */
 #pragma once
 
-#include "web_app_enc.h"
+#include "types.h"
 
 namespace Wae {
 namespace Test {

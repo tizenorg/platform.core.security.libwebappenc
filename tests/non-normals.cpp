@@ -20,10 +20,9 @@
  * @version     2.0
  * @brief       API test for preloaded/global apps
  */
-#include "web_app_enc.h"
-
 #include <boost/test/unit_test.hpp>
 
+#include "types.h"
 #include "test-helper.h"
 
 BOOST_AUTO_TEST_SUITE(SYSTEM)
