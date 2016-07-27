@@ -27,6 +27,7 @@
 
 #include <ckmc/ckmc-manager.h>
 
+#include "web_app_enc.h"
 #include "wae_log.h"
 
 #define MAX_ALIAS_LEN               256
@@ -192,28 +193,14 @@ error:
 	return ret;
 }
 
-static void _get_alias(const char *pkg_id, wae_app_type_e type, bool forSave,
+static void _get_alias(const char *name, UNUSED wae_app_type_e type, UNUSED bool forSave,
 					   char *alias, size_t buff_len)
 {
-	if (type == WAE_DOWNLOADED_NORMAL_APP) {
-		if (forSave) {
-			snprintf(alias, buff_len, "%s%s",
-					 APP_DEK_ALIAS_PFX,
-					 pkg_id);
-		} else {
-			snprintf(alias, buff_len, "%c%s%s%s%s",
-					'/', INSTALLER_LABEL,
-					 ckmc_owner_id_separator,
-					 APP_DEK_ALIAS_PFX,
-					 pkg_id);
-		}
-	} else { // system alias
-		snprintf(alias, buff_len, "%s%s%s%s",
-				 ckmc_owner_id_system,
-				 ckmc_owner_id_separator,
-				 APP_DEK_ALIAS_PFX,
-				 pkg_id);
-	}
+	snprintf(alias, buff_len, "%s%s%s%s",
+			 ckmc_owner_id_system,
+			 ckmc_owner_id_separator,
+			 APP_DEK_ALIAS_PFX,
+			 name);
 }
 
 static void _get_dek_loading_done_alias(char *alias, size_t buff_len)
@@ -276,16 +263,17 @@ int clear_app_deks_loaded_from_key_manager()
 	return _to_wae_error(ckmc_remove_alias(alias));
 }
 
-int save_to_key_manager(const char *pkg_id, wae_app_type_e type, const crypto_element_s *ce)
+int save_to_key_manager(const char *name, const char *pkg_id, wae_app_type_e type,
+						const crypto_element_s *ce)
 {
 	char alias[MAX_ALIAS_LEN] = {0, };
 
-	_get_alias(pkg_id, type, true, alias, sizeof(alias));
+	_get_alias(name, type, true, alias, sizeof(alias));
 
 	ckmc_raw_buffer_s *buf = NULL;
 	int ret = _serialize(ce, &buf);
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to serialize crypto element of pkg_id: %s", pkg_id);
+		WAE_SLOGE("Failed to serialize crypto element of name(%s)", name);
 		return ret;
 	}
 
@@ -298,8 +286,8 @@ int save_to_key_manager(const char *pkg_id, wae_app_type_e type, const crypto_el
 	ckmc_buffer_free(buf);
 
 	if (ret != WAE_ERROR_NONE) {
-		WAE_SLOGE("Failed to add crypto element to ckm: pkg_id(%s) alias(%s) ret(%d)",
-				  pkg_id, alias, ret);
+		WAE_SLOGE("Failed to add crypto element to ckm: name(%s) alias(%s) ret(%d)",
+				  name, alias, ret);
 		return ret;
 	}
 
@@ -312,19 +300,19 @@ int save_to_key_manager(const char *pkg_id, wae_app_type_e type, const crypto_el
 		return ret;
 	}
 
-	WAE_SLOGI("Success to save crypto element to key-manager. pkg_id(%s)", pkg_id);
+	WAE_SLOGI("Success to save crypto element to key-manager. name(%s)", name);
 
 	return WAE_ERROR_NONE;
 }
 
-int get_from_key_manager(const char *pkg_id, wae_app_type_e type, crypto_element_s **pce)
+int get_from_key_manager(const char *name, wae_app_type_e type, crypto_element_s **pce)
 {
-	if (pkg_id == NULL || pce == NULL)
+	if (name == NULL || pce == NULL)
 		return WAE_ERROR_INVALID_PARAMETER;
 
 	char alias[MAX_ALIAS_LEN] = {0, };
 
-	_get_alias(pkg_id, type, false, alias, sizeof(alias));
+	_get_alias(name, type, false, alias, sizeof(alias));
 
 	ckmc_raw_buffer_s *buf = NULL;
 	int ret = _to_wae_error(ckmc_get_data(alias, NULL, &buf));
@@ -338,11 +326,11 @@ int get_from_key_manager(const char *pkg_id, wae_app_type_e type, crypto_element
 	return ret;
 }
 
-int remove_from_key_manager(const char *pkg_id, wae_app_type_e type)
+int remove_from_key_manager(const char *name, wae_app_type_e type)
 {
 	char alias[MAX_ALIAS_LEN] = {0, };
 
-	_get_alias(pkg_id, type, true, alias, sizeof(alias));
+	_get_alias(name, type, true, alias, sizeof(alias));
 
 	return _to_wae_error(ckmc_remove_alias(alias));
 }

@@ -310,8 +310,8 @@ BOOST_AUTO_TEST_CASE(get_create_preloaded_app_dek_2)
 	_get_preloaded_app_dek_file_path(pkg_id2, sizeof(path2), path2);
 
 	// remove old test data
-	remove_app_ce(pkg_id1, WAE_PRELOADED_APP);
-	remove_app_ce(pkg_id2, WAE_PRELOADED_APP);
+	remove_app_ce(0, pkg_id1, WAE_PRELOADED_APP);
+	remove_app_ce(0, pkg_id2, WAE_PRELOADED_APP);
 	unlink(path1);
 	unlink(path2);
 
@@ -331,20 +331,20 @@ BOOST_AUTO_TEST_CASE(get_create_preloaded_app_dek_2)
 			"Failed to load_preloaded_app_deks. ec: " << ret);
 
 	const crypto_element_s *readed1 = nullptr;
-	ret = get_app_ce(pkg_id1, WAE_PRELOADED_APP, false, &readed1);
+	ret = get_app_ce(0, pkg_id1, WAE_PRELOADED_APP, false, &readed1);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to get_app_dek. ec: " << ret);
 
 	const crypto_element_s *readed2 = nullptr;
-	ret = get_app_ce(pkg_id2, WAE_PRELOADED_APP, false, &readed2);
+	ret = get_app_ce(0, pkg_id2, WAE_PRELOADED_APP, false, &readed2);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed to get_app_dek. ec: " << ret);
 
 	BOOST_REQUIRE_MESSAGE(readed1 == ce1, "cached ce and actual address is different!");
 	BOOST_REQUIRE_MESSAGE(readed2 == ce2, "cached ce and actual address is different!");
 
-	ret = remove_app_ce(pkg_id1, WAE_PRELOADED_APP);
+	ret = remove_app_ce(0, pkg_id1, WAE_PRELOADED_APP);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed remove app ce. ec: " << ret);
 
-	ret = remove_app_ce(pkg_id2, WAE_PRELOADED_APP);
+	ret = remove_app_ce(0, pkg_id2, WAE_PRELOADED_APP);
 	BOOST_REQUIRE_MESSAGE(ret == WAE_ERROR_NONE, "Failed remove app ce. ec: " << ret);
 }
 

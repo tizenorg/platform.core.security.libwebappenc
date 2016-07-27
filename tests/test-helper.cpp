@@ -23,6 +23,7 @@
 #include <cstring>
 #include <vector>
 
+#include "web_app_enc.h"
 #include "key_handler.h"
 #include "crypto_service.h"
 #include "types.h"
@@ -32,32 +33,39 @@
 
 namespace Wae {
 namespace Test {
+namespace {
+
+const uid_t UID_OWNER = 5001;
+
+} // namespace anonymous
 
 void add_get_remove_ce(wae_app_type_e app_type)
 {
 	const char *pkg_id = "TEST_PKG_ID";
 
 	const crypto_element_s *ce = nullptr;
-	int tmp = create_app_ce(pkg_id, app_type, &ce);
+	uid_t uid = app_type == WAE_DOWNLOADED_NORMAL_APP ? UID_OWNER : 0;
+
+	int tmp = create_app_ce(uid, pkg_id, app_type, &ce);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to create_app_ce. ec: " << tmp);
 
 	const crypto_element_s *stored_ce = nullptr;
-	tmp = get_app_ce(pkg_id, app_type, true, &stored_ce);
+	tmp = get_app_ce(uid, pkg_id, app_type, true, &stored_ce);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to get_app_ce. ec: " << tmp);
 
 	BOOST_REQUIRE_MESSAGE(ce == stored_ce,
 		"ce(" << ce << ") and cached ce(" << stored_ce << ") pointer addr is different!");
 
-	tmp = remove_app_ce(pkg_id, app_type);
+	tmp = remove_app_ce(uid, pkg_id, app_type);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to remove_app_ce. ec: " << tmp);
 
 	if (app_type == WAE_DOWNLOADED_GLOBAL_APP) {
-		tmp = get_app_ce(pkg_id, app_type, true, &stored_ce);
+		tmp = get_app_ce(uid, pkg_id, app_type, true, &stored_ce);
 		BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE && stored_ce->is_migrated_app,
 				"when getting app ce which is there isn't, it should be migrated case! "
 				"ret("<< tmp << ") and is_migrated_app(" << stored_ce->is_migrated_app << ")");
 	} else {
-		tmp = get_app_ce(pkg_id, app_type, false, &stored_ce);
+		tmp = get_app_ce(uid, pkg_id, app_type, false, &stored_ce);
 		BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NO_KEY,
 				"removed app ce is still remaining. ret(" << tmp << ")");
 	}
@@ -65,28 +73,30 @@ void add_get_remove_ce(wae_app_type_e app_type)
 
 void create_app_ce(wae_app_type_e app_type)
 {
+	uid_t uid = app_type == WAE_DOWNLOADED_NORMAL_APP ? UID_OWNER : 0;
 	const char *pkg_id = "TEST_PKG_ID";
 
-	remove_app_ce(pkg_id, app_type);
+	remove_app_ce(uid, pkg_id, app_type);
 
 	const crypto_element_s *ce = nullptr;
 
-	int tmp = create_app_ce(pkg_id, app_type, &ce);
+	int tmp = create_app_ce(uid, pkg_id, app_type, &ce);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to create_app_ce. ec: " << tmp);
 
 	const crypto_element_s *stored_ce = nullptr;
-	tmp = get_app_ce(pkg_id, app_type, false, &stored_ce);
+	tmp = get_app_ce(uid, pkg_id, app_type, false, &stored_ce);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to get_app_ce. ec: " << tmp);
 
 	BOOST_REQUIRE_MESSAGE(ce == stored_ce,
 		"ce(" << ce << ") and cached ce(" << stored_ce << ") pointer addr is different!");
 
-	tmp = remove_app_ce(pkg_id, app_type);
+	tmp = remove_app_ce(uid, pkg_id, app_type);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE, "Failed to remove_app_ce. ec: " << tmp);
 }
 
 void encrypt_decrypt_web_app(wae_app_type_e app_type)
 {
+	uid_t uid = app_type == WAE_DOWNLOADED_NORMAL_APP ? UID_OWNER : 0;
 	const char *pkg_id1 = "testpkg_for_normal";
 	const char *pkg_id2 = "testpkg_for_global";
 	const char *pkg_id3 = "testpkg_for_preloaded";
@@ -108,7 +118,10 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 	}
 
 	// remove old test data
-	wae_remove_app_dek(pkg_id, app_type);
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP)
+		wae_remove_app_dek(uid, pkg_id);
+	else
+		wae_remove_global_app_dek(pkg_id, app_type == WAE_PRELOADED_APP);
 
 	if (app_type == WAE_PRELOADED_APP)
 		clear_app_deks_loaded_from_key_manager();
@@ -121,30 +134,55 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 	// test for downloaded web application
 	unsigned char *_encrypted = nullptr;
 	size_t _enc_len = 0;
-	int tmp = wae_encrypt_web_application(pkg_id, app_type, plaintext.data(),
-										  plaintext.size(), &_encrypted, &_enc_len);
+	int tmp = 0;
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP)
+		tmp = wae_encrypt_web_application(uid, pkg_id, plaintext.data(), plaintext.size(),
+										  &_encrypted, &_enc_len);
+	else
+		tmp = wae_encrypt_global_web_application(pkg_id, app_type == WAE_PRELOADED_APP,
+												 plaintext.data(), plaintext.size(),
+												 &_encrypted, &_enc_len);
+
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
 			"Failed to wae_encrypt_web_application. ec: " << tmp);
 	free(_encrypted);
 
 	// encrypt test twice
-	tmp = wae_encrypt_web_application(pkg_id, app_type, plaintext.data(),
-									  plaintext.size(), &_encrypted, &_enc_len);
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP)
+		tmp = wae_encrypt_web_application(uid, pkg_id, plaintext.data(),
+										  plaintext.size(), &_encrypted, &_enc_len);
+	else
+		tmp = wae_encrypt_global_web_application(pkg_id, app_type == WAE_PRELOADED_APP,
+												 plaintext.data(), plaintext.size(),
+												 &_encrypted, &_enc_len);
+
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
 			"Failed to wae_encrypt_web_application second time. ec: " << tmp);
 
 	auto encrypted = bytearr_to_vec(_encrypted, _enc_len);
 	free(_encrypted);
 
-	_remove_app_ce_from_cache(pkg_id);
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP) {
+		char *key_per_user = _create_map_key(uid, pkg_id);
+		_remove_app_ce_from_cache(key_per_user);
+		free(key_per_user);
+	} else {
+		_remove_app_ce_from_cache(pkg_id);
+	}
 
 	if (app_type == WAE_PRELOADED_APP)
 		load_preloaded_app_deks(true);
 
 	unsigned char *_decrypted = nullptr;
 	size_t _dec_len = 0;
-	tmp = wae_decrypt_web_application(pkg_id, app_type, encrypted.data(),
-									  encrypted.size(), &_decrypted, &_dec_len);
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP)
+		tmp = wae_decrypt_web_application(uid, pkg_id, encrypted.data(), encrypted.size(),
+										  &_decrypted, &_dec_len);
+	else
+		tmp = wae_decrypt_global_web_application(pkg_id, app_type == WAE_PRELOADED_APP,
+										  		 encrypted.data(), encrypted.size(),
+												 &_decrypted, &_dec_len);
+
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
 			"Failed to wae_decrypt_web_application. ec: " << tmp);
 
@@ -155,7 +193,10 @@ void encrypt_decrypt_web_app(wae_app_type_e app_type)
 		"plaintext(" << bytes_to_hex(plaintext) << ") "
 		"decrypted(" << bytes_to_hex(decrypted) << ")");
 
-	tmp = wae_remove_app_dek(pkg_id, app_type);
+	if (app_type == WAE_DOWNLOADED_NORMAL_APP)
+		tmp = wae_remove_app_dek(uid, pkg_id);
+	else
+		tmp = wae_remove_global_app_dek(pkg_id, app_type == WAE_PRELOADED_APP);
 	BOOST_REQUIRE_MESSAGE(tmp == WAE_ERROR_NONE,
 			"Failed to wae_remove_app_dek. ec: " << tmp);
 }
