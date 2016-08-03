@@ -5,6 +5,8 @@ Requires=central-key-manager.service
 After=central-key-manager.service
 
 [Service]
+User=security_fw
+Group=security_fw
 Type=oneshot
 ExecStart=/usr/bin/wae_initializer
 SmackProcessLabel=System
